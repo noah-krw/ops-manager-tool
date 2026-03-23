@@ -5,7 +5,7 @@ import re
 import math
 from datetime import datetime
 
-st.set_page_config(page_title="NOA SMART REPORT v4.3", layout="wide")
+st.set_page_config(page_title="NOA SMART REPORT v4.4", layout="wide")
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #0f172a; color: #e2e8f0; }
@@ -17,7 +17,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.3")
+st.title("🚀 노아 스마트 정산기 v4.4")
 
 def to_int(val):
     if not val: return 0
@@ -54,7 +54,8 @@ with col_left:
 
 # ── 데이터 파싱 ──────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
-total_bank_sum = 0
+total_bank_sum_for_sijae = 0  # 시재금 계산용 합계 (기타 제외)
+
 if bank_raw:
     sec_pattern = '|'.join(SECTION_KEYS)
     parts = re.split(rf'\[({sec_pattern})\]', bank_raw.replace('\n', ''))
@@ -64,7 +65,10 @@ if bank_raw:
         items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([\d,]+)', sec_content)
         parsed_items = [(name.strip(), int(val.replace(',',''))) for name, val in items]
         bank_data[sec] = parsed_items
-        total_bank_sum += sum(v for n, v in parsed_items)
+        
+        # [핵심 수정]: '기타' 섹션은 시재금 합산에서 제외
+        if sec != '기타':
+            total_bank_sum_for_sijae += sum(v for n, v in parsed_items)
 
 with col_right:
     if not raw_input:
@@ -80,12 +84,12 @@ with col_right:
             if len(nums) >= 17:
                 data['b_in']      = to_int(nums[0])
                 data['b_out']     = to_int(nums[2])
-                data['b_rev']     = to_int(nums[7])  # 수수료합계
-                data['b_agent']   = to_int(nums[10]) # 에이젼시수수료
-                data['b_gate']    = to_int(nums[11]) # 게이트웨이수수료
-                data['b_other']   = to_int(nums[13]) # 기타지출
-                data['b_virtual'] = to_int(nums[14]) # 가상수수료
-                data['b_profit']  = to_int(nums[16]) # 본사순이익
+                data['b_rev']     = to_int(nums[7])
+                data['b_agent']   = to_int(nums[10])
+                data['b_gate']    = to_int(nums[11])
+                data['b_other']   = to_int(nums[13])
+                data['b_virtual'] = to_int(nums[14])
+                data['b_profit']  = to_int(nums[16])
 
         # 2. 업체 보유밸런스 & 합산
         total_merchant_balance = 0
@@ -103,15 +107,15 @@ with col_right:
             if len(cols) >= 9:
                 mid = cols[2].strip()
                 if mid in ['spfxm', 'dr188', 'drgtssen', 'NextbetM']:
-                    data['merchant_in'][mid]  = data['merchant_in'].get(mid, 0) + to_int(cols[5])
+                    data['merchant_in'][mid] = data['merchant_in'].get(mid, 0) + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
         # 4. 손익 및 시재금 계산
         rev_val = data.get('b_rev', 0)
-        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
+        exp_val = abs(data.get('get', 0)) + abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
         
-        # [수정된 시재금 공식]: 은행 메모 총합 - 업체 밸런스 총합
-        sijae_val = total_bank_sum - total_merchant_balance
+        # 시재금 공식: (기타를 제외한 은행 총합) - 업체 밸런스 총합
+        sijae_val = total_bank_sum_for_sijae - total_merchant_balance
 
         # 5. 정산표 생성
         def bank_section_text(sec_name):
