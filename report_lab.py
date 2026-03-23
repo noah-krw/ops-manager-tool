@@ -91,23 +91,22 @@ if raw_input:
             m = re.search(r'\d{4}-\d{2}-\d{2}(.+?)(?:Summary|List|$)', full)
         if m:
             block = m.group(1)
-            # 쉼표 구분 정수 (입금, 출금, 수수료 등)
+            # 쉼표 구분 정수: 입금(0),입금수수료(1),출금(2),출금수수료(3),수수료합계(4)
+            # 업체입금/출금/수수료는 0이라 정수목록에 안잡힘
             int_nums = re.findall(r'\d{1,3}(?:,\d{3})+', block)
-            # 소수점 숫자 (에이젼시, 게이트, 순이익 등)
+            # 소수점 숫자: 에이젼시(0), 순이익(-1)
             dec_nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d+', block)
-            
+
             if len(int_nums) >= 5:
                 data['b_in']     = to_int(int_nums[0])   # 입금
                 data['b_out']    = to_int(int_nums[2])   # 출금
                 data['b_rev']    = to_int(int_nums[4])   # 수수료합계
             if len(dec_nums) >= 1:
                 data['b_agent']  = to_float(dec_nums[0]) # 에이젼시수수료
-            if len(dec_nums) >= 2:
-                data['b_profit'] = to_float(dec_nums[-1]) # 본사순이익 (마지막 소수)
-            # 게이트는 int_nums 안에 있을 수 있음 (소수점 없을 때)
-            gate_m = re.search(r'(?:게이트웨이수수료|게이트)\D*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', full)
-            if gate_m:
-                data['b_gate'] = to_float(gate_m.group(1))
+            if len(int_nums) >= 7:
+                data['b_gate']   = to_int(int_nums[6])   # 게이트웨이수수료
+            if dec_nums:
+                data['b_profit'] = to_float(dec_nums[-1]) # 본사순이익
 
     # ── 2. 업체 보유밸런스 (Merchant 관리 페이지) ──────────
     balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama']
