@@ -95,17 +95,26 @@ with col_right:
             block = hq_block.group(1)
             sum_m = re.search(r'Summary(.+?)(?:List|$)', block)
             b = sum_m.group(1) if sum_m else block
-            int_nums = re.findall(r'\d{1,3}(?:,\d{3})+', b)
-            dec_nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d+', b)
-            if len(int_nums) >= 5:
-                data['b_in']  = to_int(int_nums[0])
-                data['b_out'] = to_int(int_nums[2])
-                data['b_rev'] = to_int(int_nums[4])
-            if dec_nums:
-                data['b_agent']  = to_float(dec_nums[0])
-                data['b_profit'] = to_float(dec_nums[-1])
-            if len(int_nums) >= 7:
-                data['b_gate'] = to_int(int_nums[6])
+            # 0* 패턴으로 앞에 붙은 0 무시하고 의미있는 숫자 추출
+            # 청크순서: 입금(0),입금수수료(1),출금(2),출금수수료(3),
+            # 수수료합계일매출(4),업체출금Payout(5),수수료합계(6),밸런스+(7),
+            # 에이젼시(8),게이트(9),기타지출(10),가상수수료(11),순이익(12)
+            chunks = re.findall(r'0*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', b)
+            chunks = [c for c in chunks if c]
+            if len(chunks) >= 5:
+                data['b_in']  = to_int(chunks[0])
+                data['b_out'] = to_int(chunks[2])
+                data['b_rev'] = to_int(chunks[4])
+            if len(chunks) >= 9:
+                data['b_agent']   = round(to_float(chunks[8]))
+            if len(chunks) >= 10:
+                data['b_gate']    = to_int(chunks[9])
+            if len(chunks) >= 11:
+                data['b_other']   = to_int(chunks[10])
+            if len(chunks) >= 12:
+                data['b_virtual'] = to_int(chunks[11])
+            if len(chunks) >= 13:
+                data['b_profit']  = round(to_float(chunks[12]))
 
         # 2. 업체 보유밸런스
         for t in balance_targets:
@@ -127,7 +136,8 @@ with col_right:
 
         # 4. 손익
         daily_rev    = data.get('b_rev', 0)
-        daily_exp    = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0))
+        daily_exp    = round(abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0))
+                       + abs(data.get('b_other', 0)) + abs(data.get('b_virtual', 0)))
         final_profit = data.get('b_profit', 0)
 
         # 5. 업체별 입금/출금
@@ -180,10 +190,12 @@ with col_right:
 {merchant_io_text}
 
 [손익]
-- 에이전트 : -{abs(data.get('b_agent', 0)):,.2f}
-- 게이트 : -{abs(data.get('b_gate', 0)):,.2f}
-- 일매출 및 일지출 : {daily_rev:,} / -{daily_exp:,.2f}
-- 최종순익 : {final_profit:,.2f}
+- 에이전트 : -{round(abs(data.get('b_agent', 0))):,}
+- 게이트 : -{abs(data.get('b_gate', 0)):,}
+- 가상수수료 : -{abs(data.get('b_virtual', 0)):,}
+- 기타지출 : -{abs(data.get('b_other', 0)):,}
+- 일매출 및 일지출 : {daily_rev:,} / -{daily_exp:,}
+- 최종순익 : {final_profit:,}
 """
 
         # 9. 출력
