@@ -62,51 +62,29 @@ if raw_input:
     lines = raw_input.split('\n')
 
     # ── 1. 본사 손익 현황 추출 ─────────────────────────────
-    # Summary 행에서 탭 구분으로 컬럼 추출
-    # 컬럼: 번호|일자|입금|입금수수료|출금|출금수수료|업체입금|업체출금|업체출금수수료|수수료합계|밸+|밸-|에이전시|게이트웨이|기타수입|기타지출|가상수수료|은행이체|본사순이익
-    hq_parsed = False
-    for line in lines:
-        cols = line.split('\t')
-        # Summary 행 찾기
-        if 'Summary' in cols[0] and len(cols) >= 13:
-            try:
-                data['b_in']       = to_int(cols[2])   # 입금
-                data['b_out']      = to_int(cols[4])   # 출금
-                data['b_rev']      = to_int(cols[9])   # 수수료합계
-                data['b_agent']    = to_float(cols[12]) # 에이젼시수수료
-                data['b_gate']     = to_float(cols[13]) # 게이트웨이수수료
-                data['b_virtual']  = to_float(cols[16]) if len(cols) > 16 else 0  # 가상수수료
-                data['b_profit']   = to_float(cols[18]) if len(cols) > 18 else 0  # 본사순이익
-                data['b_topup']    = to_int(cols[6])   # 업체입금(Topup)
-                data['b_payout']   = to_int(cols[7])   # 업체출금(Payout)
-                hq_parsed = True
-                break
-            except:
-                pass
+    # '본사순이익' 키워드로 본사 블록만 정확히 찾기
+    hq_block = re.search(r'본사순이익(.+?)(?:List|Merchant|$)', full)
+    if hq_block:
+        block = hq_block.group(1)
+        # Summary 이후 숫자만 추출
+        sum_m = re.search(r'Summary(.+?)(?:List|$)', block)
+        b = sum_m.group(1) if sum_m else block
 
-    # Summary 탭 파싱 실패시 → 쉼표 구분 숫자 패턴으로 추출
-    if not hq_parsed:
-        m = re.search(r'Summary(.+?)(?:List|$)', full)
-        if not m:
-            m = re.search(r'\d{4}-\d{2}-\d{2}(.+?)(?:Summary|List|$)', full)
-        if m:
-            block = m.group(1)
-            # 쉼표 구분 정수: 입금(0),입금수수료(1),출금(2),출금수수료(3),수수료합계(4)
-            # 업체입금/출금/수수료는 0이라 정수목록에 안잡힘
-            int_nums = re.findall(r'\d{1,3}(?:,\d{3})+', block)
-            # 소수점 숫자: 에이젼시(0), 순이익(-1)
-            dec_nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d+', block)
+        int_nums = re.findall(r'\d{1,3}(?:,\d{3})+', b)
+        dec_nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d+', b)
 
-            if len(int_nums) >= 5:
-                data['b_in']     = to_int(int_nums[0])   # 입금
-                data['b_out']    = to_int(int_nums[2])   # 출금
-                data['b_rev']    = to_int(int_nums[4])   # 수수료합계
-            if len(dec_nums) >= 1:
-                data['b_agent']  = to_float(dec_nums[0]) # 에이젼시수수료
-            if len(int_nums) >= 7:
-                data['b_gate']   = to_int(int_nums[6])   # 게이트웨이수수료
-            if dec_nums:
-                data['b_profit'] = to_float(dec_nums[-1]) # 본사순이익
+        # 컬럼순서: 입금(0),입금수수료(1),출금(2),출금수수료(3),수수료합계(4)
+        # 에이젼시(dec[0]), 게이트(int[6]), 순이익(dec[-1])
+        if len(int_nums) >= 5:
+            data['b_in']     = to_int(int_nums[0])
+            data['b_out']    = to_int(int_nums[2])
+            data['b_rev']    = to_int(int_nums[4])
+        if len(dec_nums) >= 1:
+            data['b_agent']  = to_float(dec_nums[0])
+        if len(int_nums) >= 7:
+            data['b_gate']   = to_int(int_nums[6])
+        if dec_nums:
+            data['b_profit'] = to_float(dec_nums[-1])
 
     # ── 2. 업체 보유밸런스 (Merchant 관리 페이지) ──────────
     balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama']
