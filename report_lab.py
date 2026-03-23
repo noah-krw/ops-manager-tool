@@ -182,7 +182,7 @@ if raw_input:
 [본사]
 - 입금 : {data.get('b_in', 0):,}
 - 출금 : {data.get('b_out', 0):,}
-- 매출(수수료합계) : {data.get('b_rev', 0):,}
+- 매출 : {data.get('b_rev', 0):,}
 
 [업체]
 - spfxm : {data['merchants'].get('spfxm', 0):,}
@@ -234,7 +234,36 @@ if raw_input:
 
     st.divider()
     st.subheader("📋 완성된 정산표")
-    st.code(report, language="markdown")
+
+    import streamlit.components.v1 as components
+    line_count = report.count("\n") + 1
+    height = max(400, line_count * 22 + 60)
+    escaped = report.replace("\\", "\\\\").replace("`", "\\`")
+    components.html(f"""
+    <div style="position:relative;margin-bottom:10px;">
+        <textarea id="report_area" style="
+            width:100%;height:{height}px;
+            background:#1e293b;color:#e2e8f0;
+            border:1px solid #38bdf8;border-radius:8px;
+            font-family:'Courier New',monospace;font-size:13px;
+            line-height:1.7;padding:14px;box-sizing:border-box;
+            resize:vertical;
+        ">{report}</textarea>
+        <button onclick="
+            var t=document.getElementById('report_area');
+            t.select();t.setSelectionRange(0,99999);
+            document.execCommand('copy');
+            this.innerText='✅ 복사완료';
+            var me=this;
+            setTimeout(function(){{me.innerText='📋 복사하기';}},1500);
+        " style="
+            margin-top:8px;padding:8px 18px;
+            background:#1e3a5f;color:#e2e8f0;
+            border:1px solid #38bdf8;border-radius:6px;
+            cursor:pointer;font-size:13px;font-weight:600;
+        ">📋 복사하기</button>
+    </div>
+    """, height=height+70)
 
     # 디버그
     with st.expander("🔍 디버그"):
