@@ -30,8 +30,11 @@ st.markdown("""
 st.title("🚀 노아 스마트 정산기 v4.0")
 st.info("💡 본사 손익 현황 + Merchant By Date + 업체 관리 페이지를 모두 붙여넣으세요.")
 
-raw_input = st.text_area("어드민 복사 텍스트 전체", height=400, 
-                          placeholder="본사 손익 현황, Merchant By Date Statistics, Merchant 관리 페이지 텍스트를 모두 복사해서 붙여넣으세요.")
+col_left, col_right = st.columns([1, 1], gap="large")
+
+with col_left:
+    raw_input = st.text_area("📋 어드민 텍스트", height=300,
+        placeholder="본사 손익 현황 + Merchant By Date + 업체 관리 페이지를 모두 붙여넣으세요.")
 
 def to_int(val):
     if not val: return 0
@@ -112,8 +115,9 @@ if raw_input:
                     pass
 
     # ── 4. USDT 정산/탑업 수동 입력 ───────────────────────
-    st.divider()
-    st.subheader("💱 USDT 정산 / 탑업 입력")
+    with col_left:
+        st.divider()
+        st.subheader("💱 USDT 정산 / 탑업 입력")
     col1, col2 = st.columns(2)
     with col1:
         usdt_settle_merchant = st.selectbox("USDT 정산 업체", balance_targets, key="usdt_s_m")
@@ -123,9 +127,10 @@ if raw_input:
         usdt_topup_amount    = st.number_input("USDT 탑업 금액 (KRW)", min_value=0, step=1000000, key="usdt_t_a")
 
     # ── 5. 은행 메모 붙여넣기 ──────────────────────────────
-    st.divider()
-    st.subheader("🏦 은행 메모 붙여넣기")
-    bank_raw = st.text_area("메모장 텍스트 붙여넣기", height=200, key="bank_raw",
+    with col_left:
+        st.divider()
+        st.subheader("🏦 은행 메모 붙여넣기")
+        bank_raw = st.text_area("메모장 텍스트 붙여넣기", height=200, key="bank_raw",
         placeholder="[앞장]- 이름 : 금액\n[롤링장]- 이름 : 금액\n...")
 
     # 파싱
@@ -206,8 +211,8 @@ if raw_input:
 - 최종순익 : {final_profit:,.2f}
 """
 
-    st.divider()
-    st.subheader("📋 완성된 정산표")
+    with col_right:
+        st.subheader("📋 완성된 정산표")
 
     import streamlit.components.v1 as components
     line_count = report.count("\n") + 1
@@ -239,15 +244,15 @@ if raw_input:
     </div>
     """, height=height+70)
 
-    # 디버그
-    with st.expander("🔍 디버그"):
-        st.write("**본사**")
-        st.write(f"입금: {data.get('b_in',0):,} | 출금: {data.get('b_out',0):,} | 수수료합계: {data.get('b_rev',0):,}")
-        st.write(f"에이젼시: {data.get('b_agent',0)} | 게이트: {data.get('b_gate',0)} | 가상: {data.get('b_virtual',0)} | 순이익: {data.get('b_profit',0)}")
-        st.write("**업체 밸런스**")
-        for t in balance_targets:
-            st.write(f"{t}: {data['merchants'].get(t,0):,}")
-        st.write("**업체별 입금/출금 (By Date)**")
-        for t in date_targets:
-            if t in data['merchant_in'] or t in data['merchant_out']:
-                st.write(f"{t}: {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}")
+    with col_right:
+        with st.expander("🔍 디버그"):
+            st.write("**본사**")
+            st.write(f"입금: {data.get('b_in',0):,} | 출금: {data.get('b_out',0):,} | 수수료합계: {data.get('b_rev',0):,}")
+            st.write(f"에이젼시: {data.get('b_agent',0)} | 게이트: {data.get('b_gate',0)} | 가상: {data.get('b_virtual',0)} | 순이익: {data.get('b_profit',0)}")
+            st.write("**업체 밸런스**")
+            for t in balance_targets:
+                st.write(f"{t}: {data['merchants'].get(t,0):,}")
+            st.write("**업체별 입금/출금 (By Date)**")
+            for t in date_targets:
+                if t in data['merchant_in'] or t in data['merchant_out']:
+                    st.write(f"{t}: {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}")
