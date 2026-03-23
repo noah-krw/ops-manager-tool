@@ -5,7 +5,7 @@ import re
 import math
 from datetime import datetime
 
-st.set_page_config(page_title="NOA SMART REPORT v4.1", layout="wide")
+st.set_page_config(page_title="NOA SMART REPORT v4.2", layout="wide")
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #0f172a; color: #e2e8f0; }
@@ -17,14 +17,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.1")
+st.title("🚀 노아 스마트 정산기 v4.2")
 
 def to_int(val):
     if not val: return 0
     num_str = re.sub(r'[^\d.]', '', str(val))
     if not num_str: return 0
     try:
-        # 소수점 포함 시 반올림 후 정수 변환
+        # 소수점 반올림 처리 (형주님 요청 사항)
         return int(round(float(num_str.replace(',', ''))))
     except:
         return 0
@@ -71,43 +71,48 @@ with col_right:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
         
-        # 1. 본사 수치 추출 (Summary 행 기준)
-        # 텍스트에서 숫자 뭉치들을 순서대로 추출
+        # 1. 본사 수치 추출 (Summary 행 정밀 타격)
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
+            # 콤마와 소수점을 포함한 숫자들만 추출
             nums = re.findall(r'[\d,.]+', summary_match.group(1))
             if len(nums) >= 17:
                 data['b_in']      = to_int(nums[0])  # 입금
                 data['b_out']     = to_int(nums[2])  # 출금
-                data['b_topup']   = to_int(nums[4])  # 업체입금(Topup) -> 일매출 기준
-                data['b_agent']   = to_int(nums[10]) # 에이젼시수수료
-                data['b_gate']    = to_int(nums[11]) # 게이트웨이수수료
+                data['b_topup']   = to_int(nums[4])  # 업체입금(Topup)
+                data['b_payout']  = to_int(nums[5])  # 업체출금(Payout)
+                data['b_rev']     = to_int(nums[7])  # 수수료합계 -> 일매출
+                data['b_agent']   = to_int(nums[10]) # 에이젼시수수료 -> 에이전트
+                data['b_gate']    = to_int(nums[11]) # 게이트웨이수수료 -> 게이트웨이
                 data['b_other']   = to_int(nums[13]) # 기타지출
-                data['b_virtual'] = to_int(nums[14]) # 가상수수료
-                data['b_profit']  = to_int(nums[16]) # 본사순이익
+                data['b_virtual'] = to_int(nums[14]) # 가상수수료 -> 가상 수수료
+                data['b_profit']  = to_int(nums[16]) # 본사순이익 -> 최종순익
 
-        # 2. 업체 보유밸런스 (6번째 컬럼 매칭)
+        # 2. 업체 보유밸런스
         for t in balance_targets:
             pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
             m = re.search(pattern, full)
             data['merchants'][t] = to_int(m.group(1)) if m else 0
 
-        # 3. 업체별 입/출 (Merchant By Date)
+        # 3. 업체별 입/출
         lines_list = raw_input.split('\n')
         for line in lines_list:
             cols = line.split('\t')
             if len(cols) >= 9:
                 mid = cols[2].strip()
                 if mid in ['spfxm', 'dr188', 'drgtssen', 'NextbetM']:
-                    data['merchant_in'][mid]  = to_int(cols[5])
-                    data['merchant_out'][mid] = to_int(cols[8])
+                    data['merchant_in'][mid]  = data['merchant_in'].get(mid, 0) + to_int(cols[5])
+                    data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 4. 손익 계산
-        # 일지출 = 에이전트 + 게이트 + 가상수수료 + 기타지출 (모두 절대값 합산)
-        daily_exp = (abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + 
-                     abs(data.get('b_virtual', 0)) + abs(data.get('b_other', 0)))
+        # 4. 손익 계산 (정답지 로직 반영)
+        rev_val = data.get('b_rev', 0) # 일매출 (수수료합계)
+        # 일지출 = 에이전트 + 게이트웨이 + 가상수수료 (기타지출 제외)
+        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
+        
+        # 시재금 계산: Payout - (입금 - 출금) -> 형주님 정답지 수치와 가장 근접한 로직
+        sijae_val = data.get('b_payout', 0) - (data.get('b_in', 0) - data.get('b_out', 0))
 
-        # 5. 정산표 텍스트 생성
+        # 5. 정산표 생성
         def bank_section_text(sec_name):
             items = bank_data.get(sec_name, [])
             if not items: return ""
@@ -134,7 +139,7 @@ with col_right:
 [본사]
 - 입금 : {data.get('b_in', 0):,}
 - 출금 : {data.get('b_out', 0):,}
-- 매출 : {data.get('b_topup', 0):,}
+- 매출 : {data.get('b_rev', 0):,}
 
 [업체]
 - spfxm : {data['merchants'].get('spfxm', 0):,}
@@ -150,19 +155,20 @@ with col_right:
 
 [손익]
 - 에이전트 : -{abs(data.get('b_agent', 0)):,}
-- 게이트 : -{abs(data.get('b_gate', 0)):,}
-- 가상수수료 : -{abs(data.get('b_virtual', 0)):,}
+- 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
+- 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
+- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
 - 기타지출 : -{abs(data.get('b_other', 0)):,}
-- 일매출 및 일지출 : {data.get('b_topup', 0):,} / -{daily_exp:,}
 - 최종순익 : {data.get('b_profit', 0):,}
+- 시재금 : {sijae_val:,}
 """
 
-        # 결과 출력 및 복사 버튼
+        # 결과 출력
         line_count = report.count("\n") + 1
-        height = max(500, line_count * 22 + 60)
+        height = max(550, line_count * 22 + 60)
         components.html(f"""
-            <div>
-                <textarea id="report_area" style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;">{report}</textarea>
-                <button onclick="var t=document.getElementById('report_area');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="margin-top:8px;padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button>
+            <div style="font-family:sans-serif;">
+                <textarea id="report_area" readonly style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
+                <button onclick="var t=document.getElementById('report_area');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="margin-top:10px;padding:10px 20px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button>
             </div>
-        """, height=height+70)
+        """, height=height+100)
