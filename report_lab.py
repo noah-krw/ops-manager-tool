@@ -122,39 +122,24 @@ if raw_input:
         usdt_topup_merchant  = st.selectbox("USDT 탑업 업체", balance_targets, key="usdt_t_m")
         usdt_topup_amount    = st.number_input("USDT 탑업 금액 (KRW)", min_value=0, step=1000000, key="usdt_t_a")
 
-    # ── 5. 앞장 / 롤링 / 출금 / 중간 / 뒷장 / 금고 / 기타 수동 입력 ──
+    # ── 5. 은행 메모 붙여넣기 ──────────────────────────────
     st.divider()
-    st.subheader("📋 추가 항목 입력")
+    st.subheader("🏦 은행 메모 붙여넣기")
+    bank_raw = st.text_area("메모장 텍스트 붙여넣기", height=200, key="bank_raw",
+        placeholder="[앞장]- 이름 : 금액\n[롤링장]- 이름 : 금액\n...")
 
-    c1, c2 = st.columns(2)
-    with c1:
-        front1_name   = st.text_input("앞장 1 이름", value="L김용준(대구)xm", key="f1n")
-        front1_amount = st.number_input("앞장 1 금액", min_value=0, step=10000, key="f1a")
-        front2_name   = st.text_input("앞장 2 이름", value="O김미소(농협)spin", key="f2n")
-        front2_amount = st.number_input("앞장 2 금액", min_value=0, step=10000, key="f2a")
+    # 파싱
+    SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
+    bank_data = {k: [] for k in SECTION_KEYS}
 
-        roll1_name    = st.text_input("롤링 1 이름", value="김형주(우리)[롤]", key="r1n")
-        roll1_amount  = st.number_input("롤링 1 금액", min_value=0, step=10000, key="r1a")
-        roll2_name    = st.text_input("롤링 2 이름", value="박현우(제일)[롤]", key="r2n")
-        roll2_amount  = st.number_input("롤링 2 금액", min_value=0, step=10000, key="r2a")
-
-    with c2:
-        withdraw_name   = st.text_input("출금장 이름", value="이재하(우체)", key="wn")
-        withdraw_amount = st.number_input("출금장 금액", min_value=0, step=10000, key="wa")
-
-        mid1_name    = st.text_input("중간장 1 이름", value="이재하[가상]", key="m1n")
-        mid1_amount  = st.number_input("중간장 1 금액", min_value=0, step=10000, key="m1a")
-        mid2_name    = st.text_input("중간장 2 이름", value="김형주[가상]", key="m2n")
-        mid2_amount  = st.number_input("중간장 2 금액", min_value=0, step=10000, key="m2a")
-
-        back_name    = st.text_input("뒷장 이름", value="김동원(농협)", key="bn")
-        back_amount  = st.number_input("뒷장 금액", min_value=0, step=10000, key="ba")
-
-        safe_name    = st.text_input("금고장 이름", value="박인영(우리)", key="sn")
-        safe_amount  = st.number_input("금고장 금액", min_value=0, step=10000, key="sa")
-
-        etc_name     = st.text_input("기타 이름", value="박대(usdt)", key="en")
-        etc_amount   = st.number_input("기타 금액", min_value=0, step=10000, key="ea")
+    if bank_raw:
+        sec_pattern = '|'.join(SECTION_KEYS)
+        parts = re.split(rf'\[({sec_pattern})\]', bank_raw.replace('\n', ''))
+        it = iter(parts[1:])
+        for sec in it:
+            sec_content = next(it, '')
+            items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([\d,]+)', sec_content)
+            bank_data[sec] = [(name.strip(), int(val.replace(',',''))) for name, val in items]
 
     # ── 6. 손익 계산 ──────────────────────────────────────
     # 일매출: 수수료합계
@@ -175,6 +160,17 @@ if raw_input:
         if in_v > 0 or out_v > 0:
             merchant_io_lines.append(f"- {t} : {in_v:,} / {out_v:,}")
     merchant_io_text = '\n'.join(merchant_io_lines) if merchant_io_lines else "- (데이터 없음)"
+
+
+    # 은행 섹션 텍스트 생성
+    def bank_section_text(sec_name):
+        items = bank_data.get(sec_name, [])
+        if not items:
+            return f"[{sec_name}]\n- (없음)"
+        lines_txt = '\n'.join([f"- {n} : {v:,}" for n, v in items])
+        return f"[{sec_name}]\n{lines_txt}"
+
+    bank_sections_text = '\n\n'.join([bank_section_text(k) for k in SECTION_KEYS])
 
     report = f"""💰정산표
 ***{now} 티엘 현황***
@@ -197,29 +193,7 @@ if raw_input:
 [USDT 탑업]
 - {usdt_topup_merchant} : {int(usdt_topup_amount):,}
 
-[앞장]
-- {front1_name} : {int(front1_amount):,}
-- {front2_name} : {int(front2_amount):,}
-
-[롤링장]
-- {roll1_name} : {int(roll1_amount):,}
-- {roll2_name} : {int(roll2_amount):,}
-
-[출금장]
-- {withdraw_name} : {int(withdraw_amount):,}
-
-[중간장]
-- {mid1_name} : {int(mid1_amount):,}
-- {mid2_name} : {int(mid2_amount):,}
-
-[뒷장]
-- {back_name} : {int(back_amount):,}
-
-[금고장]
-- {safe_name} : {int(safe_amount):,}
-
-[기타]
-- {etc_name} : {int(etc_amount):,}
+{bank_sections_text}
 
 [업체별 입금/출금]
 {merchant_io_text}
