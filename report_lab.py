@@ -84,21 +84,30 @@ if raw_input:
             except:
                 pass
 
-    # Summary 탭 파싱 실패시 숫자 뭉치로 재시도
+    # Summary 탭 파싱 실패시 → 쉼표 구분 숫자 패턴으로 추출
     if not hq_parsed:
-        for line in lines:
-            if 'Summary' in line:
-                nums = re.findall(r'[\d,]+\.?\d*', line)
-                nums = [n for n in nums if n != '0' or True]
-                if len(nums) >= 9:
-                    data['b_in']      = to_int(nums[0])
-                    data['b_out']     = to_int(nums[2])
-                    data['b_rev']     = to_int(nums[7])
-                    data['b_agent']   = to_float(nums[10]) if len(nums) > 10 else 0
-                    data['b_gate']    = to_float(nums[11]) if len(nums) > 11 else 0
-                    data['b_virtual'] = to_float(nums[14]) if len(nums) > 14 else 0
-                    data['b_profit']  = to_float(nums[16]) if len(nums) > 16 else 0
-                    break
+        m = re.search(r'Summary(.+?)(?:List|$)', full)
+        if not m:
+            m = re.search(r'\d{4}-\d{2}-\d{2}(.+?)(?:Summary|List|$)', full)
+        if m:
+            block = m.group(1)
+            # 쉼표 구분 정수 (입금, 출금, 수수료 등)
+            int_nums = re.findall(r'\d{1,3}(?:,\d{3})+', block)
+            # 소수점 숫자 (에이젼시, 게이트, 순이익 등)
+            dec_nums = re.findall(r'\d{1,3}(?:,\d{3})*\.\d+', block)
+            
+            if len(int_nums) >= 5:
+                data['b_in']     = to_int(int_nums[0])   # 입금
+                data['b_out']    = to_int(int_nums[2])   # 출금
+                data['b_rev']    = to_int(int_nums[4])   # 수수료합계
+            if len(dec_nums) >= 1:
+                data['b_agent']  = to_float(dec_nums[0]) # 에이젼시수수료
+            if len(dec_nums) >= 2:
+                data['b_profit'] = to_float(dec_nums[-1]) # 본사순이익 (마지막 소수)
+            # 게이트는 int_nums 안에 있을 수 있음 (소수점 없을 때)
+            gate_m = re.search(r'(?:게이트웨이수수료|게이트)\D*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)', full)
+            if gate_m:
+                data['b_gate'] = to_float(gate_m.group(1))
 
     # ── 2. 업체 보유밸런스 (Merchant 관리 페이지) ──────────
     balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama']
