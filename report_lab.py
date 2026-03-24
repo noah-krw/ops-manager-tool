@@ -143,8 +143,7 @@ with col_right:
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
 
         now = datetime.now().strftime("%m월 %d일")
-        report = f"""💰정산표
-***{now} 티엘 현황***
+        report = f"""***{now} 티엘 현황***
 
 [본사]
 - 입금 : {data.get('b_in', 0):,}
@@ -176,7 +175,7 @@ with col_right:
         height = max(550, line_count * 22 + 60)
         components.html(f"""
             <div style="font-family:sans-serif;">
-                <textarea id="report_area" readonly style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
-                <button onclick="var t=document.getElementById('report_area');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="margin-top:10px;padding:10px 20px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button>
+                <textarea id="report_area" style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;"><span style="font-family:'Courier New',monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.05em;">✎ 직접 수정 가능</span><button onclick="var t=document.getElementById('report_area');t.select();t.setSelectionRange(0,99999);document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button></div>
             </div>
         """, height=height+100)
