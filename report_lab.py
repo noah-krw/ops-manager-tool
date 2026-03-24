@@ -54,7 +54,7 @@ with col_left:
 
 # ── 데이터 파싱 ──────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
-total_bank_sum_for_sijae = 0  # 시재금 계산용 합계 (기타 제외)
+total_bank_sum_for_sijae = 0
 
 if bank_raw:
     sec_pattern = '|'.join(SECTION_KEYS)
@@ -65,8 +65,6 @@ if bank_raw:
         items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([\d,]+)', sec_content)
         parsed_items = [(name.strip(), int(val.replace(',',''))) for name, val in items]
         bank_data[sec] = parsed_items
-        
-        # [핵심 수정]: '기타' 섹션은 시재금 합산에서 제외
         if sec != '기타':
             total_bank_sum_for_sijae += sum(v for n, v in parsed_items)
 
@@ -76,7 +74,7 @@ with col_right:
     else:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
-        
+
         # 1. 본사 수치 추출
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
@@ -91,7 +89,7 @@ with col_right:
                 data['b_virtual'] = to_int(nums[14])
                 data['b_profit']  = to_int(nums[16])
 
-        # 2. 업체 보유밸런스 & 합산
+        # 2. 업체 보유밸런스
         total_merchant_balance = 0
         for t in balance_targets:
             pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
@@ -110,11 +108,14 @@ with col_right:
                     data['merchant_in'][mid] = data['merchant_in'].get(mid, 0) + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 4. 손익 및 시재금 계산
+        # 4. 손익 계산
+        # [수정] 'get' → 'b_other' 오타 수정
         rev_val = data.get('b_rev', 0)
-        exp_val = abs(data.get('get', 0)) + abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
-        
-        # 시재금 공식: (기타를 제외한 은행 총합) - 업체 밸런스 총합
+        exp_val = (abs(data.get('b_other', 0)) +
+                   abs(data.get('b_agent', 0)) +
+                   abs(data.get('b_gate', 0)) +
+                   abs(data.get('b_virtual', 0)))
+
         sijae_val = total_bank_sum_for_sijae - total_merchant_balance
 
         # 5. 정산표 생성
@@ -133,9 +134,13 @@ with col_right:
         if usdt_topup_amount > 0:
             usdt_lines += f"[USDT 탑업]\n- {usdt_topup_merchant} : {int(usdt_topup_amount):,}\n\n"
 
-        io_lines = [f"- {t} : {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}" 
-                    for t in ['spfxm', 'dr188', 'drgtssen', 'NextbetM'] if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
+        io_lines = [f"- {t} : {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}"
+                    for t in ['spfxm', 'dr188', 'drgtssen', 'NextbetM']
+                    if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
         merchant_io_text = '\n'.join(io_lines) if io_lines else "- (데이터 없음)"
+
+        # [수정] 기타지출 0이면 줄 자체 숨김
+        other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
 
         now = datetime.now().strftime("%m월 %d일")
         report = f"""💰정산표
@@ -162,8 +167,7 @@ with col_right:
 - 에이전트 : -{abs(data.get('b_agent', 0)):,}
 - 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
 - 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
-- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
-- 기타지출 : -{abs(data.get('b_other', 0)):,}
+{other_line}- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
 - 최종순익 : {data.get('b_profit', 0):,}
 - 시재금 : {sijae_val:,}
 """
