@@ -192,10 +192,13 @@ with col_right:
             </div>
         """, height=height+100)
 
-        # ── 하단 요약 섹션 (노아님 요청 사항) ──
+        # ── 하단 요약 섹션 (노아님 요청 계산법 반영) ──
+        # 원화시재 = 은행합계(total_bank_sum_for_sijae) - 머천트합계(total_merchant_balance)
+        custom_won_sijae = total_bank_sum_for_sijae - total_merchant_balance
+        
         st.markdown(f"""
         <div class="summary-box">
-            <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {total_bank_sum_for_sijae:,}</p>
+            <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {custom_won_sijae:,}</p>
             <p style="margin:5px 0; font-size:14px; color:#38bdf8;">머천트밸런스 : {total_merchant_balance:,}</p>
             <p style="margin:0; font-size:14px; color:#38bdf8;">예상usdt구매 : 00</p>
         </div>
