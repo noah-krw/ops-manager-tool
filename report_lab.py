@@ -5,7 +5,7 @@ import re
 import math
 from datetime import datetime
 
-st.set_page_config(page_title="NOA SMART REPORT v4.9.1", layout="wide")
+st.set_page_config(page_title="NOA SMART REPORT v4.9.2", layout="wide")
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #0f172a; color: #e2e8f0; }
@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.1")
+st.title("🚀 노아 스마트 정산기 v4.9.2")
 
 def to_int(val):
     if not val: return 0
@@ -103,11 +103,12 @@ with col_right:
                 data['b_agent'], data['b_gate'], data['b_virtual'] = to_int(nums[10]), to_int(nums[11]), to_int(nums[14])
                 data['b_other'], data['b_profit'] = to_int(nums[13]), to_int(nums[16])
 
-        # 업체 밸런스
+        # 업체 밸런스 (날짜 패턴 추가로 정확한 값 추출)
         balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama']
         total_merchant_balance = 0
         for t in balance_targets:
-            m = re.search(rf'\t{re.escape(t)}\t.*?([\d,.-]+)\s*원', full)
+            pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
+            m = re.search(pattern, full)
             val = to_int(m.group(1)) if m else 0
             data['merchants'][t] = val
             total_merchant_balance += val
