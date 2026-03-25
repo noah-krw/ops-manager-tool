@@ -29,7 +29,6 @@ st.title("🚀 노아 스마트 정산기 v4.9.2")
 
 def to_int(val):
     if not val: return 0
-    # 계산을 위해 숫자와 소수점, 마이너스 부호만 남기고 제거
     num_str = re.sub(r'[^\d.-]', '', str(val))
     if not num_str: return 0
     try:
@@ -39,7 +38,6 @@ def to_int(val):
 
 SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
 
-# ── 레이아웃 (3단 입력 시스템 유지) ───────────────────────────────────────────
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
@@ -50,27 +48,21 @@ with col_left:
     st.divider()
     usdt_raw = st.text_area("💱 3. USDT 내역", height=150, key="usdt_raw", placeholder="[USDT 정산]- 업체명 : 금액...")
 
-# ── 데이터 파싱 ──────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
 total_bank_sum_for_sijae = 0
 
 if bank_raw:
     sec_pattern = '|'.join(SECTION_KEYS)
-    # 줄바꿈 유지하며 섹션 분리
     parts = re.split(rf'\[({sec_pattern})\]', bank_raw)
     it = iter(parts[1:])
     for sec in it:
         sec_content = next(it, '')
-        # [수정] 콜론(:) 뒤의 모든 텍스트를 긁어오도록 변경 (메모 보존)
         items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([^\n\r]+)', sec_content)
         parsed_items = [(name.strip(), val.strip()) for name, val in items]
         bank_data[sec] = parsed_items
-        
-        # '기타'를 제외한 섹션만 시재 합산 (to_int가 텍스트 사이에서 숫자만 골라냄)
         if sec != '기타':
             total_bank_sum_for_sijae += sum(to_int(v) for n, v in parsed_items)
 
-# USDT 파싱
 usdt_settle_lines = ""
 usdt_topup_lines = ""
 if usdt_raw:
@@ -94,7 +86,6 @@ with col_right:
         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
         now_str = f"{date_match.group(2)}월 {date_match.group(3)}일" if date_match else datetime.now().strftime("%m월 %d일")
 
-        # 어드민 요약 추출
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
             nums = re.findall(r'[\d,.-]+', summary_match.group(1))
@@ -103,8 +94,8 @@ with col_right:
                 data['b_agent'], data['b_gate'], data['b_virtual'] = to_int(nums[10]), to_int(nums[11]), to_int(nums[14])
                 data['b_other'], data['b_profit'] = to_int(nums[13]), to_int(nums[16])
 
-        # 업체 밸런스 (날짜 패턴 추가로 정확한 값 추출)
-        balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama']
+        # ── 업체 밸런스 (drbetssen 추가) ──
+        balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_merchant_balance = 0
         for t in balance_targets:
             pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
@@ -113,21 +104,33 @@ with col_right:
             data['merchants'][t] = val
             total_merchant_balance += val
 
-        # 손익 계산
         rev_val = data.get('b_rev', 0)
         exp_val = abs(data.get('b_other', 0)) + abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
 
-        # ── 보고서 생성 ──
         usdt_section = ""
         if usdt_settle_lines: usdt_section += f"[USDT 정산]\n{usdt_settle_lines}\n"
-        if usdt_topup_lines: usdt_section += f"[USDT 탑업]\n{usdt_topup_lines}\n"
+        if usdt_topup_lines:  usdt_section += f"[USDT 탑업]\n{usdt_topup_lines}\n"
 
         def get_bank_txt(k):
             items = bank_data.get(k, [])
-            # [수정] 금액 포맷팅을 건드리지 않고 입력값 그대로 출력
             return f"[{k}]\n" + '\n'.join([f"- {n} : {v}" for n, v in items]) if items else ""
 
         bank_text = '\n\n'.join([p for p in [get_bank_txt(k) for k in SECTION_KEYS] if p])
+
+        # ── 업체 섹션: 0이면 노출 안함 ──
+        merchant_lines = ""
+        merchant_display = {
+            'spfxm': 'spfxm',
+            'Dpinnacle': 'Dpinnacle',
+            'dr188': 'dr188',
+            'drgtssen': 'drgtssen',
+            'drSpinmama': 'drSpinmama',
+            'drbetssen': 'drbetssen',
+        }
+        for key, label in merchant_display.items():
+            val = data['merchants'].get(key, 0)
+            if val != 0:
+                merchant_lines += f"- {label} : {val:,}\n"
 
         report = f"""***{now_str} 티엘 현황***
 
@@ -137,11 +140,7 @@ with col_right:
 - 매출 : {data.get('b_rev', 0):,}
 
 [업체]
-- spfxm : {data['merchants'].get('spfxm', 0):,}
-- Dpinnacle : {data['merchants'].get('Dpinnacle', 0):,}
-- dr188 : {data['merchants'].get('dr188', 0):,}
-- drgtssen : {data['merchants'].get('drgtssen', 0):,}
-- drSpinmama : {data['merchants'].get('drSpinmama', 0):,}
+{merchant_lines.strip()}
 
 {usdt_section}{bank_text}
 
@@ -158,7 +157,6 @@ with col_right:
             <button onclick="var t=document.getElementById('rep');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="margin-top:8px;padding:10px 20px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
         """, height=700)
 
-        # ── 하단 리스크 관리 섹션 (v4.9 로직 유지) ──
         SAFE_MIN = 30000000
         custom_won_sijae = total_bank_sum_for_sijae - total_merchant_balance
         risk_managed_buy = max(0, math.floor((total_bank_sum_for_sijae - SAFE_MIN) / 10000000) * 10000000)
