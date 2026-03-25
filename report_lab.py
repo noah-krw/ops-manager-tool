@@ -75,6 +75,13 @@ with col_right:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
 
+        # [날짜 추출 로직 추가] 텍스트에서 YYYY-MM-DD 추출
+        date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
+        if date_match:
+            now_str = f"{date_match.group(2)}월 {date_match.group(3)}일"
+        else:
+            now_str = datetime.now().strftime("%m월 %d일")
+
         # 1. 본사 수치 추출
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
@@ -109,7 +116,6 @@ with col_right:
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
         # 4. 손익 계산
-        # [수정] 'get' → 'b_other' 오타 수정
         rev_val = data.get('b_rev', 0)
         exp_val = (abs(data.get('b_other', 0)) +
                    abs(data.get('b_agent', 0)) +
@@ -142,8 +148,7 @@ with col_right:
         # [수정] 기타지출 0이면 줄 자체 숨김
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
 
-        now = datetime.now().strftime("%m월 %d일")
-        report = f"""***{now} 티엘 현황***
+        report = f"""***{now_str} 티엘 현황***
 
 [본사]
 - 입금 : {data.get('b_in', 0):,}
