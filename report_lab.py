@@ -192,14 +192,19 @@ with col_right:
             </div>
         """, height=height+100)
 
-        # ── 하단 요약 섹션 (노아님 요청 계산법 반영) ──
-        # 원화시재 = 은행합계(total_bank_sum_for_sijae) - 머천트합계(total_merchant_balance)
+        # ── [수정] 하단 요약 섹션 (USDT 구매 로직 반영) ──
         custom_won_sijae = total_bank_sum_for_sijae - total_merchant_balance
-        
+        gap = abs(custom_won_sijae)
+        if gap > 0:
+            expected_usdt_buy = math.ceil(gap / 10000000) * 10000000
+        else:
+            expected_usdt_buy = 0
+
         st.markdown(f"""
         <div class="summary-box">
-            <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {custom_won_sijae:,}</p>
-            <p style="margin:5px 0; font-size:14px; color:#38bdf8;">머천트밸런스 : {total_merchant_balance:,}</p>
-            <p style="margin:0; font-size:14px; color:#38bdf8;">예상usdt구매 : 00</p>
+            <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {custom_won_sijae:,}원</p>
+            <p style="margin:5px 0; font-size:14px; color:#38bdf8;">은행 잔고 합계 : {total_bank_sum_for_sijae:,}원</p>
+            <p style="margin:5px 0; font-size:14px; color:#38bdf8;">머천트밸런스 : {total_merchant_balance:,}원</p>
+            <p style="margin:0; font-size:16px; color:#fbbf24; font-weight:bold;">💰 예상 USDT 구매 : {expected_usdt_buy:,}원</p>
         </div>
         """, unsafe_allow_html=True)
