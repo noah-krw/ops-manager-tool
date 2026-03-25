@@ -14,6 +14,14 @@ st.markdown("""
         color: #38bdf8 !important;
         font-family: 'Courier New', monospace;
     }
+    .summary-box {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #1e293b;
+        border-left: 5px solid #38bdf8;
+        border-radius: 5px;
+        font-family: 'Courier New', monospace;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +83,7 @@ with col_right:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
 
-        # [날짜 추출 로직 추가] 텍스트에서 YYYY-MM-DD 추출
+        # [날짜 추출 로직]
         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
         if date_match:
             now_str = f"{date_match.group(2)}월 {date_match.group(3)}일"
@@ -145,7 +153,6 @@ with col_right:
                     if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
         merchant_io_text = '\n'.join(io_lines) if io_lines else "- (데이터 없음)"
 
-        # [수정] 기타지출 0이면 줄 자체 숨김
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
 
         report = f"""***{now_str} 티엘 현황***
@@ -184,3 +191,12 @@ with col_right:
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;"><span style="font-family:'Courier New',monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.05em;">✎ 직접 수정 가능</span><button onclick="var t=document.getElementById('report_area');t.select();t.setSelectionRange(0,99999);document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button></div>
             </div>
         """, height=height+100)
+
+        # ── 하단 요약 섹션 (노아님 요청 사항) ──
+        st.markdown(f"""
+        <div class="summary-box">
+            <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {total_bank_sum_for_sijae:,}</p>
+            <p style="margin:5px 0; font-size:14px; color:#38bdf8;">머천트밸런스 : {total_merchant_balance:,}</p>
+            <p style="margin:0; font-size:14px; color:#38bdf8;">예상usdt구매 : 00</p>
+        </div>
+        """, unsafe_allow_html=True)
