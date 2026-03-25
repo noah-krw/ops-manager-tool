@@ -5,7 +5,7 @@ import re
 import math
 from datetime import datetime
 
-st.set_page_config(page_title="NOA SMART REPORT v4.6", layout="wide")
+st.set_page_config(page_title="NOA SMART REPORT v4.4", layout="wide")
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"] { background-color: #0f172a; color: #e2e8f0; }
@@ -17,7 +17,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.6")
+st.title("🚀 노아 스마트 정산기 v4.4")
 
 def to_int(val):
     if not val: return 0
@@ -34,15 +34,12 @@ SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금�
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.info("💡 모든 데이터를 붙여넣으세요. 텍스트 속 날짜를 자동으로 인식합니다.")
-    
-    report_type = st.radio(
-        "📊 보고서 종류 선택",
-        ["자정 정산표 (전체)", "2시간 간격 현황 (간이)"],
-        horizontal=True
-    )
+    st.info("💡 어드민 [본사 손익 현황] + [머천트 관리] + [머천트 통계현황] 텍스트를 붙여넣으세요.")
+    raw_input = st.text_area("📋 어드민 텍스트", height=280, key="raw_input")
 
-    raw_input = st.text_area("📋 어드민 텍스트", height=250, key="raw_input")
+    st.divider()
+    st.subheader("🏦 은행 메모 붙여넣기")
+    bank_raw = st.text_area("메모장 텍스트", height=180, key="bank_raw", placeholder="[앞장]- 이름 : 금액...")
 
     st.divider()
     st.subheader("💱 USDT 정산 / 탑업")
@@ -55,13 +52,10 @@ with col_left:
         usdt_topup_merchant  = st.selectbox("USDT 탑업 업체", balance_targets, key="usdt_t_m")
         usdt_topup_amount    = st.number_input("금액 (KRW)", min_value=0, step=1000000, key="usdt_t_a")
 
-    st.divider()
-    st.subheader("🏦 은행 메모 붙여넣기")
-    bank_raw = st.text_area("메모장 텍스트", height=180, key="bank_raw", placeholder="[앞장]- 이름 : 금액...")
-
 # ── 데이터 파싱 ──────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
 total_bank_sum_for_sijae = 0
+
 if bank_raw:
     sec_pattern = '|'.join(SECTION_KEYS)
     parts = re.split(rf'\[({sec_pattern})\]', bank_raw.replace('\n', ''))
@@ -80,15 +74,8 @@ with col_right:
     else:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
-        
-        # [수정 포인트] 텍스트에서 날짜(YYYY-MM-DD) 추출
-        date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
-        if date_match:
-            report_date = f"{date_match.group(2)}월 {date_match.group(3)}일"
-        else:
-            report_date = datetime.now().strftime("%m월 %d일") # 못찾으면 오늘날짜
 
-        # 1. 본사 수치
+        # 1. 본사 수치 추출
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
             nums = re.findall(r'[\d,.]+', summary_match.group(1))
@@ -121,9 +108,14 @@ with col_right:
                     data['merchant_in'][mid] = data['merchant_in'].get(mid, 0) + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 4. 손익 및 시재금 계산
+        # 4. 손익 계산
+        # [수정] 'get' → 'b_other' 오타 수정
         rev_val = data.get('b_rev', 0)
-        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
+        exp_val = (abs(data.get('b_other', 0)) +
+                   abs(data.get('b_agent', 0)) +
+                   abs(data.get('b_gate', 0)) +
+                   abs(data.get('b_virtual', 0)))
+
         sijae_val = total_bank_sum_for_sijae - total_merchant_balance
 
         # 5. 정산표 생성
@@ -142,9 +134,16 @@ with col_right:
         if usdt_topup_amount > 0:
             usdt_lines += f"[USDT 탑업]\n- {usdt_topup_merchant} : {int(usdt_topup_amount):,}\n\n"
 
-        # 결과 텍스트 구성
-        report = f"""💰정산표
-***{report_date} 티엘 현황***
+        io_lines = [f"- {t} : {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}"
+                    for t in ['spfxm', 'dr188', 'drgtssen', 'NextbetM']
+                    if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
+        merchant_io_text = '\n'.join(io_lines) if io_lines else "- (데이터 없음)"
+
+        # [수정] 기타지출 0이면 줄 자체 숨김
+        other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
+
+        now = datetime.now().strftime("%m월 %d일")
+        report = f"""***{now} 티엘 현황***
 
 [본사]
 - 입금 : {data.get('b_in', 0):,}
@@ -159,14 +158,7 @@ with col_right:
 - drSpinmama : {data['merchants'].get('drSpinmama', 0):,}
 
 {usdt_lines}{bank_sections_text}
-"""
-        
-        if report_type == "자정 정산표 (전체)":
-            io_lines = [f"- {t} : {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}" 
-                        for t in ['spfxm', 'dr188', 'drgtssen', 'NextbetM'] if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
-            merchant_io_text = '\n'.join(io_lines) if io_lines else "- (데이터 없음)"
-            
-            report += f"""
+
 [업체별 입금/출금]
 {merchant_io_text}
 
@@ -174,8 +166,7 @@ with col_right:
 - 에이전트 : -{abs(data.get('b_agent', 0)):,}
 - 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
 - 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
-- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
-- 기타지출 : -{abs(data.get('b_other', 0)):,}
+{other_line}- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
 - 최종순익 : {data.get('b_profit', 0):,}
 - 시재금 : {sijae_val:,}
 """
@@ -184,7 +175,7 @@ with col_right:
         height = max(550, line_count * 22 + 60)
         components.html(f"""
             <div style="font-family:sans-serif;">
-                <textarea id="report_area" readonly style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
-                <button onclick="var t=document.getElementById('report_area');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="margin-top:10px;padding:10px 20px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button>
+                <textarea id="report_area" style="width:100%;height:{height}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;"><span style="font-family:'Courier New',monospace;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.05em;">✎ 직접 수정 가능</span><button onclick="var t=document.getElementById('report_area');t.select();t.setSelectionRange(0,99999);document.execCommand('copy');this.innerText='✅ 복사완료';var me=this;setTimeout(function(){{me.innerText='📋 복사하기';}},1500);" style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">📋 복사하기</button></div>
             </div>
         """, height=height+100)
