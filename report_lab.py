@@ -83,14 +83,12 @@ with col_right:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
 
-        # [날짜 추출 로직]
         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
         if date_match:
             now_str = f"{date_match.group(2)}월 {date_match.group(3)}일"
         else:
             now_str = datetime.now().strftime("%m월 %d일")
 
-        # 1. 본사 수치 추출
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
             nums = re.findall(r'[\d,.]+', summary_match.group(1))
@@ -104,7 +102,6 @@ with col_right:
                 data['b_virtual'] = to_int(nums[14])
                 data['b_profit']  = to_int(nums[16])
 
-        # 2. 업체 보유밸런스
         total_merchant_balance = 0
         for t in balance_targets:
             pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
@@ -113,7 +110,6 @@ with col_right:
             data['merchants'][t] = val
             total_merchant_balance += val
 
-        # 3. 업체별 입/출
         lines_list = raw_input.split('\n')
         for line in lines_list:
             cols = line.split('\t')
@@ -123,16 +119,11 @@ with col_right:
                     data['merchant_in'][mid] = data['merchant_in'].get(mid, 0) + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 4. 손익 계산
         rev_val = data.get('b_rev', 0)
-        exp_val = (abs(data.get('b_other', 0)) +
-                   abs(data.get('b_agent', 0)) +
-                   abs(data.get('b_gate', 0)) +
-                   abs(data.get('b_virtual', 0)))
-
+        exp_val = (abs(data.get('b_other', 0)) + abs(data.get('b_agent', 0)) +
+                   abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0)))
         sijae_val = total_bank_sum_for_sijae - total_merchant_balance
 
-        # 5. 정산표 생성
         def bank_section_text(sec_name):
             items = bank_data.get(sec_name, [])
             if not items: return ""
@@ -152,7 +143,6 @@ with col_right:
                     for t in ['spfxm', 'dr188', 'drgtssen', 'NextbetM']
                     if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
         merchant_io_text = '\n'.join(io_lines) if io_lines else "- (데이터 없음)"
-
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
 
         report = f"""***{now_str} 티엘 현황***
@@ -192,19 +182,16 @@ with col_right:
             </div>
         """, height=height+100)
 
-        # ── [수정] 하단 요약 섹션 (USDT 구매 로직 반영) ──
+        # ── 하단 요약 섹션 (이모티콘 제거 및 스타일 통일) ──
         custom_won_sijae = total_bank_sum_for_sijae - total_merchant_balance
         gap = abs(custom_won_sijae)
-        if gap > 0:
-            expected_usdt_buy = math.ceil(gap / 10000000) * 10000000
-        else:
-            expected_usdt_buy = 0
+        expected_usdt_buy = math.ceil(gap / 10000000) * 10000000 if gap > 0 else 0
 
         st.markdown(f"""
         <div class="summary-box">
             <p style="margin:0; font-size:14px; color:#38bdf8;">원화시재 : {custom_won_sijae:,}원</p>
             <p style="margin:5px 0; font-size:14px; color:#38bdf8;">은행 잔고 합계 : {total_bank_sum_for_sijae:,}원</p>
             <p style="margin:5px 0; font-size:14px; color:#38bdf8;">머천트밸런스 : {total_merchant_balance:,}원</p>
-            <p style="margin:0; font-size:16px; color:#fbbf24; font-weight:bold;">💰 예상 USDT 구매 : {expected_usdt_buy:,}원</p>
+            <p style="margin:0; font-size:14px; color:#38bdf8;">예상 USDT 구매 : {expected_usdt_buy:,}원</p>
         </div>
         """, unsafe_allow_html=True)
