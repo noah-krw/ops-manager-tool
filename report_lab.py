@@ -105,7 +105,7 @@ with col_right:
             total_merchant_balance += val
 
         rev_val = data.get('b_rev', 0)
-        exp_val = abs(data.get('b_other', 0)) + abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
+        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
 
         usdt_section = ""
         if usdt_settle_lines: usdt_section += f"[USDT 정산]\n{usdt_settle_lines}\n"
