@@ -27,6 +27,18 @@ st.markdown("""
         padding: 4px 12px;
         height: auto;
     }
+    /* 삭제 버튼 빨간색 */
+    div[data-testid="stButton"] button[kind="secondary"] {
+        background-color: rgba(220, 38, 38, 0.15) !important;
+        border: 1px solid rgba(220, 38, 38, 0.6) !important;
+        color: #f87171 !important;
+        font-size: 11px !important;
+        padding: 3px 10px !important;
+    }
+    div[data-testid="stButton"] button[kind="secondary"]:hover {
+        background-color: rgba(220, 38, 38, 0.35) !important;
+        border-color: #f87171 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -66,19 +78,19 @@ with col_left:
     st.info("💡 텍스트 입력창 4개를 순서대로 활용하세요.")
 
     # 1. 어드민 텍스트
+    raw_input = st.text_area("📋 1. 어드민 텍스트 (본사 손익 현황 + 머천트 관리)", height=180, key="raw_input")
     if st.button("🗑 삭제", key="clear_raw"):
         st.session_state["raw_input"] = ""
         st.rerun()
-    raw_input = st.text_area("📋 1. 어드민 텍스트 (본사 손익 현황 + 머천트 관리)", height=180, key="raw_input")
 
     st.divider()
 
     # 2. USDT 내역
+    usdt_raw = st.text_area("💱 2. USDT 내역", height=180, key="usdt_raw",
+                              placeholder="[USDT 정산]- 업체명 : 금액\n[USDT 탑업]- 업체명 : 금액")
     if st.button("🗑 삭제", key="clear_usdt"):
         st.session_state["usdt_raw"] = ""
         st.rerun()
-    usdt_raw = st.text_area("💱 2. USDT 내역", height=180, key="usdt_raw",
-                              placeholder="[USDT 정산]- 업체명 : 금액\n[USDT 탑업]- 업체명 : 금액")
     if usdt_raw:
         st.caption("💾 삭제하지 않으면 오늘 하루 동안 유지됩니다. 날짜가 바뀌면 자동으로 초기화됩니다.")
     else:
@@ -87,20 +99,20 @@ with col_left:
     st.divider()
 
     # 3. 은행 메모
+    bank_raw = st.text_area("🏦 3. 은행 메모", height=180, key="bank_raw",
+                             placeholder="[앞장]- 이름 : 금액...")
     if st.button("🗑 삭제", key="clear_bank"):
         st.session_state["bank_raw"] = ""
         st.rerun()
-    bank_raw = st.text_area("🏦 3. 은행 메모", height=180, key="bank_raw",
-                             placeholder="[앞장]- 이름 : 금액...")
 
     st.divider()
 
     # 4. 머천트 통계
+    mbd_raw = st.text_area("📊 4. 머천트 통계 (Merchant By Date)", height=180, key="mbd_raw",
+                             placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
     if st.button("🗑 삭제", key="clear_mbd"):
         st.session_state["mbd_raw"] = ""
         st.rerun()
-    mbd_raw = st.text_area("📊 4. 머천트 통계 (Merchant By Date)", height=180, key="mbd_raw",
-                             placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
 
 
 # ── 은행 파싱 ────────────────────────────────────────────
