@@ -43,36 +43,18 @@ def to_int(val):
 
 SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
 
-# ── USDT localStorage 동기화 컴포넌트 ──────────────────
-# 날짜 기반으로 자동 초기화, 오늘 날짜와 다르면 삭제
 today_str = datetime.now().strftime("%Y-%m-%d")
 
-usdt_sync = components.html(f"""
-<script>
-(function() {{
-    var TODAY = "{today_str}";
-    var saved = null;
-    try {{ saved = JSON.parse(localStorage.getItem('noa_usdt_raw')); }} catch(e) {{}}
+# USDT session_state 초기화 (없으면 빈 문자열로)
+if 'usdt_raw' not in st.session_state:
+    st.session_state['usdt_raw'] = ""
+if 'usdt_date' not in st.session_state:
+    st.session_state['usdt_date'] = today_str
 
-    // 날짜 다르면 자동 삭제
-    if (saved && saved.date !== TODAY) {{
-        localStorage.removeItem('noa_usdt_raw');
-        saved = null;
-    }}
-
-    // Streamlit에 값 전달
-    var content = (saved && saved.content) ? saved.content : "";
-    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: content}}, '*');
-}})();
-</script>
-""", height=0)
-
-# localStorage에서 불러온 USDT 값
-if 'usdt_loaded' not in st.session_state:
-    st.session_state['usdt_loaded'] = False
-if usdt_sync is not None and not st.session_state['usdt_loaded']:
-    st.session_state['usdt_raw'] = usdt_sync
-    st.session_state['usdt_loaded'] = True
+# 날짜 바뀌면 자동 초기화
+if st.session_state['usdt_date'] != today_str:
+    st.session_state['usdt_raw'] = ""
+    st.session_state['usdt_date'] = today_str
 
 # ── 레이아웃 ────────────────────────────────────────────
 col_left, col_right = st.columns([1, 1], gap="large")
@@ -102,30 +84,15 @@ with col_left:
     with col_usdt_btn1:
         if st.button("🗑 USDT 내역 삭제", key="clear_usdt"):
             st.session_state["usdt_raw"] = ""
-            # localStorage도 삭제
-            components.html("""
-            <script>
-                localStorage.removeItem('noa_usdt_raw');
-            </script>
-            """, height=0)
             st.rerun()
 
     usdt_raw = st.text_area("💱 3. USDT 내역", height=150, key="usdt_raw",
                               placeholder="[USDT 정산]- 업체명 : 금액\n[USDT 탑업]- 업체명 : 금액")
 
-    # USDT 값 변경되면 localStorage에 저장
     if usdt_raw:
-        components.html(f"""
-        <script>
-        (function() {{
-            var data = {{date: "{today_str}", content: {repr(usdt_raw)}}};
-            try {{ localStorage.setItem('noa_usdt_raw', JSON.stringify(data)); }} catch(e) {{}}
-        }})();
-        </script>
-        """, height=0)
-        st.caption("💾 USDT 내역이 브라우저에 저장되어 있습니다. 날짜가 바뀌면 자동으로 초기화됩니다. 직접 삭제하려면 위 삭제 버튼을 눌러주세요.")
+        st.caption("💾 삭제하지 않으면 오늘 하루 동안 유지됩니다. 날짜가 바뀌면 자동으로 초기화됩니다.")
     else:
-        st.caption("ℹ️ USDT 내역을 입력하면 브라우저에 저장되어 다음 접속 시에도 유지됩니다.")
+        st.caption("ℹ️ USDT 내역을 입력하면 오늘 하루 유지됩니다.")
 
 # ── 은행 파싱 ────────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
