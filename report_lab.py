@@ -223,7 +223,8 @@ with col_right:
 {merchant_lines.strip()}
 
 {usdt_section}{bank_text}
-{"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) if merchant_io_text else ""}
+
+{"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}
 [손익]
 - 에이전트 : -{abs(data.get('b_agent', 0)):,}
 - 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
