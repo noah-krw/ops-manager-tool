@@ -15,23 +15,21 @@ st.markdown("""
         font-family: 'Courier New', monospace;
     }
     .summary-box {
-        margin-top: 20px;
-        padding: 15px;
+        margin-top: 20px; padding: 15px;
         background-color: #1e293b;
         border-left: 5px solid #38bdf8;
         border-radius: 5px;
         font-family: 'Courier New', monospace;
     }
     div[data-testid="stButton"] button[kind="secondary"] {
-        background-color: rgba(220, 38, 38, 0.15) !important;
-        border: 1px solid rgba(220, 38, 38, 0.6) !important;
+        background-color: rgba(220,38,38,0.15) !important;
+        border: 1px solid rgba(220,38,38,0.6) !important;
         color: #f87171 !important;
         font-size: 11px !important;
         padding: 3px 10px !important;
     }
     div[data-testid="stButton"] button[kind="secondary"]:hover {
-        background-color: rgba(220, 38, 38, 0.35) !important;
-        border-color: #f87171 !important;
+        background-color: rgba(220,38,38,0.35) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -42,10 +40,8 @@ def to_int(val):
     if not val: return 0
     num_str = re.sub(r'[^\d.-]', '', str(val))
     if not num_str: return 0
-    try:
-        return int(round(float(num_str)))
-    except:
-        return 0
+    try: return int(round(float(num_str)))
+    except: return 0
 
 SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
 today_str = datetime.now().strftime("%Y-%m-%d")
@@ -54,28 +50,18 @@ today_str = datetime.now().strftime("%Y-%m-%d")
 for k in ['raw_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     if k not in st.session_state:
         st.session_state[k] = ""
-
 if 'usdt_date' not in st.session_state:
     st.session_state['usdt_date'] = today_str
-
-# 날짜 바뀌면 USDT 자동 초기화
 if st.session_state['usdt_date'] != today_str:
     st.session_state['usdt_raw'] = ""
     st.session_state['usdt_date'] = today_str
 
-# ── 삭제 버튼 처리 (위젯 렌더링 전에 먼저 처리) ──────────
-if st.session_state.get('_clear_raw'):
-    st.session_state['raw_input'] = ""
-    st.session_state['_clear_raw'] = False
-if st.session_state.get('_clear_usdt'):
-    st.session_state['usdt_raw'] = ""
-    st.session_state['_clear_usdt'] = False
-if st.session_state.get('_clear_bank'):
-    st.session_state['bank_raw'] = ""
-    st.session_state['_clear_bank'] = False
-if st.session_state.get('_clear_mbd'):
-    st.session_state['mbd_raw'] = ""
-    st.session_state['_clear_mbd'] = False
+# ── 삭제 플래그 처리 (위젯 렌더링 전) ────────────────────
+for k in ['raw_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
+    flag = f'_clear_{k}'
+    if st.session_state.get(flag):
+        st.session_state[k] = ""
+        st.session_state[flag] = False
 
 # ── 레이아웃 ────────────────────────────────────────────
 col_left, col_right = st.columns([1, 1], gap="large")
@@ -83,47 +69,38 @@ col_left, col_right = st.columns([1, 1], gap="large")
 with col_left:
     st.info("💡 텍스트 입력창 4개를 순서대로 활용하세요.")
 
-    # 1. 어드민 텍스트
     raw_input = st.text_area("📋 1. 어드민 텍스트 (본사 손익 현황 + 머천트 관리)", height=180, key="raw_input")
     if st.button("🗑 삭제", key="clear_raw"):
-        st.session_state['_clear_raw'] = True
-        st.rerun()
+        st.session_state['_clear_raw_input'] = True
 
     st.divider()
 
-    # 2. USDT 내역
     usdt_raw = st.text_area("💱 2. USDT 내역", height=180, key="usdt_raw",
-                              placeholder="[USDT 정산]- 업체명 : 금액\n[USDT 탑업]- 업체명 : 금액")
+        placeholder="정산 spfxm, 7000000\n탑업 dr188, 50000000")
     if st.button("🗑 삭제", key="clear_usdt"):
-        st.session_state['_clear_usdt'] = True
-        st.rerun()
+        st.session_state['_clear_usdt_raw'] = True
     if usdt_raw:
-        st.caption("💾 삭제하지 않으면 오늘 하루 동안 유지됩니다. 날짜가 바뀌면 자동으로 초기화됩니다.")
+        st.caption("💾 삭제하지 않으면 오늘 하루 유지됩니다. 날짜가 바뀌면 자동 초기화됩니다.")
     else:
-        st.caption("ℹ️ USDT 내역을 입력하면 오늘 하루 유지됩니다.")
+        st.caption("ℹ️ 예) 정산 spfxm, 7000000 / 탑업 dr188, 50000000")
 
     st.divider()
 
-    # 3. 은행 메모
     bank_raw = st.text_area("🏦 3. 은행 메모", height=180, key="bank_raw",
-                             placeholder="[앞장]- 이름 : 금액...")
+        placeholder="[앞장]- 이름 : 금액...")
     if st.button("🗑 삭제", key="clear_bank"):
-        st.session_state['_clear_bank'] = True
-        st.rerun()
+        st.session_state['_clear_bank_raw'] = True
 
     st.divider()
 
-    # 4. 머천트 통계
     mbd_raw = st.text_area("📊 4. 머천트 통계 (Merchant By Date)", height=180, key="mbd_raw",
-                             placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
+        placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
     if st.button("🗑 삭제", key="clear_mbd"):
-        st.session_state['_clear_mbd'] = True
-        st.rerun()
+        st.session_state['_clear_mbd_raw'] = True
 
 # ── 은행 파싱 ────────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
 total_bank_sum_for_sijae = 0
-
 if bank_raw:
     sec_pattern = '|'.join(SECTION_KEYS)
     parts = re.split(rf'\[({sec_pattern})\]', bank_raw)
@@ -136,11 +113,11 @@ if bank_raw:
         if sec != '기타':
             total_bank_sum_for_sijae += sum(to_int(v) for n, v in parsed_items)
 
-# ── USDT 파싱 (자유 형식 지원) ──────────────────────────
+# ── USDT 파싱 ────────────────────────────────────────────
 usdt_settle_lines = ""
 usdt_topup_lines = ""
 if usdt_raw:
-    # 기존 형식 우선 시도 ([USDT 정산] / [USDT 탑업] 섹션)
+    # 기존 형식: [USDT 정산] / [USDT 탑업] 섹션
     u_parts = re.split(r'\[(USDT 정산|USDT 탑업)\]', usdt_raw)
     if len(u_parts) > 1:
         u_it = iter(u_parts[1:])
@@ -153,27 +130,24 @@ if usdt_raw:
                 else:
                     usdt_topup_lines += f"- {name} : {val}\n"
     else:
-        # 자유 형식: 줄 단위로 파싱
-        # 예) "정산 spfxm 7,000,000" / "탑업 dr188 10000000" / "spfxm 정산 7000000"
+        # 자유 형식: "정산 업체명, 금액" / "탑업 업체명, 금액"
         for line in usdt_raw.strip().split('\n'):
             line = line.strip()
             if not line: continue
-            # 숫자 추출 (가장 큰 숫자 = 금액)
-            nums = re.findall(r'[\d,]+', line)
+            m = re.match(r'(정산|탑업)\s+(.*)', line)
+            if not m: continue
+            is_topup = m.group(1) == '탑업'
+            rest = m.group(2).strip()
+            if ',' not in rest: continue
+            merchant, amount_part = rest.split(',', 1)
+            merchant = merchant.strip()
+            nums = re.findall(r'[\d]+', amount_part)
             if not nums: continue
-            amount_str = max(nums, key=lambda x: len(x.replace(',', '')))
-            amount = int(amount_str.replace(',', ''))
-            amount_fmt = f"{amount:,}"
-            # 업체명 추출 (키워드/숫자 제거 후 남은 첫 단어)
-            clean = re.sub(r'[\d,]+', '', line)
-            keywords = {'정산', '탑업', 'usdt', 'USDT', '-', '[', ']'}
-            words = [w for w in clean.split() if w not in keywords]
-            merchant = words[0] if words else "unknown"
-            # 정산/탑업 구분
-            if '탑업' in line or 'topup' in line.lower():
-                usdt_topup_lines += f"- {merchant} : {amount_fmt}\n"
+            amount = int(''.join(nums))
+            if is_topup:
+                usdt_topup_lines += f"- {merchant} : {amount:,}\n"
             else:
-                usdt_settle_lines += f"- {merchant} : {amount_fmt}\n"
+                usdt_settle_lines += f"- {merchant} : {amount:,}\n"
 
 # ── 오른쪽: 결과 ─────────────────────────────────────────
 with col_right:
@@ -204,8 +178,7 @@ with col_right:
             total_merchant_balance += val
 
         mbd_targets = ['spfxm', 'dr188', 'drgtssen', 'drbetssen', 'drSpinmama', 'NextbetM']
-        mbd_lines = mbd_raw.split('\n') if mbd_raw else []
-        for line in mbd_lines:
+        for line in (mbd_raw.split('\n') if mbd_raw else []):
             cols = line.split('\t')
             if len(cols) >= 9:
                 mid = cols[2].strip()
@@ -259,7 +232,6 @@ with col_right:
 {other_line}- 최종순익 : {data.get('b_profit', 0):,}
 - 시재금 : {sijae_val:,} (기타 제외)
 """
-
         line_count = report.count("\n") + 1
         height = max(550, line_count * 22 + 60)
         components.html(f"""
