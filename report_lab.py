@@ -22,12 +22,6 @@ st.markdown("""
         border-radius: 5px;
         font-family: 'Courier New', monospace;
     }
-    div[data-testid="stButton"] button {
-        font-size: 12px;
-        padding: 4px 12px;
-        height: auto;
-    }
-    /* 삭제 버튼 빨간색 */
     div[data-testid="stButton"] button[kind="secondary"] {
         background-color: rgba(220, 38, 38, 0.15) !important;
         border: 1px solid rgba(220, 38, 38, 0.6) !important;
@@ -54,22 +48,34 @@ def to_int(val):
         return 0
 
 SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
-
 today_str = datetime.now().strftime("%Y-%m-%d")
 
-# USDT session_state 초기화 (없으면 빈 문자열로)
-if 'mbd_raw' not in st.session_state:
-    st.session_state['mbd_raw'] = ""
+# ── session_state 초기화 ─────────────────────────────────
+for k in ['raw_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
+    if k not in st.session_state:
+        st.session_state[k] = ""
 
-if 'usdt_raw' not in st.session_state:
-    st.session_state['usdt_raw'] = ""
 if 'usdt_date' not in st.session_state:
     st.session_state['usdt_date'] = today_str
 
-# 날짜 바뀌면 자동 초기화
+# 날짜 바뀌면 USDT 자동 초기화
 if st.session_state['usdt_date'] != today_str:
     st.session_state['usdt_raw'] = ""
     st.session_state['usdt_date'] = today_str
+
+# ── 삭제 버튼 처리 (위젯 렌더링 전에 먼저 처리) ──────────
+if st.session_state.get('_clear_raw'):
+    st.session_state['raw_input'] = ""
+    st.session_state['_clear_raw'] = False
+if st.session_state.get('_clear_usdt'):
+    st.session_state['usdt_raw'] = ""
+    st.session_state['_clear_usdt'] = False
+if st.session_state.get('_clear_bank'):
+    st.session_state['bank_raw'] = ""
+    st.session_state['_clear_bank'] = False
+if st.session_state.get('_clear_mbd'):
+    st.session_state['mbd_raw'] = ""
+    st.session_state['_clear_mbd'] = False
 
 # ── 레이아웃 ────────────────────────────────────────────
 col_left, col_right = st.columns([1, 1], gap="large")
@@ -80,7 +86,7 @@ with col_left:
     # 1. 어드민 텍스트
     raw_input = st.text_area("📋 1. 어드민 텍스트 (본사 손익 현황 + 머천트 관리)", height=180, key="raw_input")
     if st.button("🗑 삭제", key="clear_raw"):
-        st.session_state["raw_input"] = ""
+        st.session_state['_clear_raw'] = True
         st.rerun()
 
     st.divider()
@@ -89,7 +95,7 @@ with col_left:
     usdt_raw = st.text_area("💱 2. USDT 내역", height=180, key="usdt_raw",
                               placeholder="[USDT 정산]- 업체명 : 금액\n[USDT 탑업]- 업체명 : 금액")
     if st.button("🗑 삭제", key="clear_usdt"):
-        st.session_state["usdt_raw"] = ""
+        st.session_state['_clear_usdt'] = True
         st.rerun()
     if usdt_raw:
         st.caption("💾 삭제하지 않으면 오늘 하루 동안 유지됩니다. 날짜가 바뀌면 자동으로 초기화됩니다.")
@@ -102,7 +108,7 @@ with col_left:
     bank_raw = st.text_area("🏦 3. 은행 메모", height=180, key="bank_raw",
                              placeholder="[앞장]- 이름 : 금액...")
     if st.button("🗑 삭제", key="clear_bank"):
-        st.session_state["bank_raw"] = ""
+        st.session_state['_clear_bank'] = True
         st.rerun()
 
     st.divider()
@@ -111,9 +117,8 @@ with col_left:
     mbd_raw = st.text_area("📊 4. 머천트 통계 (Merchant By Date)", height=180, key="mbd_raw",
                              placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
     if st.button("🗑 삭제", key="clear_mbd"):
-        st.session_state["mbd_raw"] = ""
+        st.session_state['_clear_mbd'] = True
         st.rerun()
-
 
 # ── 은행 파싱 ────────────────────────────────────────────
 bank_data = {k: [] for k in SECTION_KEYS}
@@ -154,11 +159,9 @@ with col_right:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
 
-        # 날짜 추출
         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
         now_str = f"{date_match.group(2)}월 {date_match.group(3)}일" if date_match else datetime.now().strftime("%m월 %d일")
 
-        # 본사 수치
         summary_match = re.search(r'Summary\s*(.*)', full)
         if summary_match:
             nums = re.findall(r'[\d,.-]+', summary_match.group(1))
@@ -167,7 +170,6 @@ with col_right:
                 data['b_agent'], data['b_gate'], data['b_virtual'] = to_int(nums[10]), to_int(nums[11]), to_int(nums[14])
                 data['b_other'], data['b_profit'] = to_int(nums[13]), to_int(nums[16])
 
-        # 업체 밸런스
         balance_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_merchant_balance = 0
         for t in balance_targets:
@@ -177,8 +179,6 @@ with col_right:
             data['merchants'][t] = val
             total_merchant_balance += val
 
-
-        # 업체별 입/출 (Merchant By Date 별도 입력창에서 파싱)
         mbd_targets = ['spfxm', 'dr188', 'drgtssen', 'drbetssen', 'drSpinmama', 'NextbetM']
         mbd_lines = mbd_raw.split('\n') if mbd_raw else []
         for line in mbd_lines:
@@ -189,40 +189,31 @@ with col_right:
                     data['merchant_in'][mid] = data['merchant_in'].get(mid, 0) + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 손익
         rev_val = data.get('b_rev', 0)
-        exp_val = (abs(data.get('b_agent', 0)) +
-                   abs(data.get('b_gate', 0)) +
-                   abs(data.get('b_virtual', 0)))
+        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
 
-        # USDT 섹션
         usdt_section = ""
         if usdt_settle_lines: usdt_section += f"[USDT 정산]\n{usdt_settle_lines}\n"
         if usdt_topup_lines:  usdt_section += f"[USDT 탑업]\n{usdt_topup_lines}\n"
 
-        # 은행 섹션
         def get_bank_txt(k):
             items = bank_data.get(k, [])
             return f"[{k}]\n" + '\n'.join([f"- {n} : {v}" for n, v in items]) if items else ""
         bank_text = '\n\n'.join([p for p in [get_bank_txt(k) for k in SECTION_KEYS] if p])
 
-        # 업체 섹션 (0이면 숨김)
         merchant_lines = ""
         for key in balance_targets:
             val = data['merchants'].get(key, 0)
             if val != 0:
                 merchant_lines += f"- {key} : {val:,}\n"
 
-        # 기타지출 (0이면 숨김)
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
-
         sijae_val = total_bank_sum_for_sijae - total_merchant_balance
-        # 업체별 입금/출금 텍스트
+
         io_lines = [f"- {t} : {data['merchant_in'].get(t,0):,} / {data['merchant_out'].get(t,0):,}"
                     for t in mbd_targets
                     if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
         merchant_io_text = '\n'.join(io_lines) if io_lines else ""
-
 
         report = f"""***{now_str} 티엘 현황***
 
@@ -236,8 +227,7 @@ with col_right:
 
 {usdt_section}{bank_text}
 
-{"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}
-[손익]
+{"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}[손익]
 - 에이전트 : -{abs(data.get('b_agent', 0)):,}
 - 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
 - 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
@@ -257,7 +247,6 @@ with col_right:
             </div>
         """, height=height+50)
 
-        # 리스크 관리 박스
         SAFE_MIN = 30000000
         risk_managed_buy = max(0, math.floor((total_bank_sum_for_sijae - SAFE_MIN) / 10000000) * 10000000)
         st.markdown(f"""
