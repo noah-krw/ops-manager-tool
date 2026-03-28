@@ -136,20 +136,44 @@ if bank_raw:
         if sec != '기타':
             total_bank_sum_for_sijae += sum(to_int(v) for n, v in parsed_items)
 
-# ── USDT 파싱 ────────────────────────────────────────────
+# ── USDT 파싱 (자유 형식 지원) ──────────────────────────
 usdt_settle_lines = ""
 usdt_topup_lines = ""
 if usdt_raw:
+    # 기존 형식 우선 시도 ([USDT 정산] / [USDT 탑업] 섹션)
     u_parts = re.split(r'\[(USDT 정산|USDT 탑업)\]', usdt_raw)
-    u_it = iter(u_parts[1:])
-    for u_sec in u_it:
-        u_content = next(u_it, '')
-        u_items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([^\n\r]+)', u_content)
-        for name, val in u_items:
-            if u_sec == "USDT 정산":
-                usdt_settle_lines += f"- {name} : {val}\n"
+    if len(u_parts) > 1:
+        u_it = iter(u_parts[1:])
+        for u_sec in u_it:
+            u_content = next(u_it, '')
+            u_items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([^\n\r]+)', u_content)
+            for name, val in u_items:
+                if u_sec == "USDT 정산":
+                    usdt_settle_lines += f"- {name} : {val}\n"
+                else:
+                    usdt_topup_lines += f"- {name} : {val}\n"
+    else:
+        # 자유 형식: 줄 단위로 파싱
+        # 예) "정산 spfxm 7,000,000" / "탑업 dr188 10000000" / "spfxm 정산 7000000"
+        for line in usdt_raw.strip().split('\n'):
+            line = line.strip()
+            if not line: continue
+            # 숫자 추출 (가장 큰 숫자 = 금액)
+            nums = re.findall(r'[\d,]+', line)
+            if not nums: continue
+            amount_str = max(nums, key=lambda x: len(x.replace(',', '')))
+            amount = int(amount_str.replace(',', ''))
+            amount_fmt = f"{amount:,}"
+            # 업체명 추출 (키워드/숫자 제거 후 남은 첫 단어)
+            clean = re.sub(r'[\d,]+', '', line)
+            keywords = {'정산', '탑업', 'usdt', 'USDT', '-', '[', ']'}
+            words = [w for w in clean.split() if w not in keywords]
+            merchant = words[0] if words else "unknown"
+            # 정산/탑업 구분
+            if '탑업' in line or 'topup' in line.lower():
+                usdt_topup_lines += f"- {merchant} : {amount_fmt}\n"
             else:
-                usdt_topup_lines += f"- {name} : {val}\n"
+                usdt_settle_lines += f"- {merchant} : {amount_fmt}\n"
 
 # ── 오른쪽: 결과 ─────────────────────────────────────────
 with col_right:
