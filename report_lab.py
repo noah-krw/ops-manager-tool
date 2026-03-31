@@ -43,7 +43,7 @@ def to_int(val):
     try: return int(round(float(num_str)))
     except: return 0
 
-SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']
+SECTION_KEYS = ['앞장', '롤링장', '출금장', '중간장', '뒷장', '금고장', '기타']  # 정산표 출력 순서용
 today_str = datetime.now().strftime("%Y-%m-%d")
 
 # ── session_state 초기화 ─────────────────────────────────
@@ -98,20 +98,26 @@ with col_left:
     if st.button("🗑 삭제", key="clear_mbd"):
         st.session_state['_clear_mbd_raw'] = True
 
-# ── 은행 파싱 ────────────────────────────────────────────
-bank_data = {k: [] for k in SECTION_KEYS}
+# ── 은행 파싱 (섹션 이름 자유 형식) ─────────────────────
+bank_data = {}  # 입력된 섹션명 그대로 저장
 total_bank_sum_for_sijae = 0
 if bank_raw:
-    sec_pattern = '|'.join(SECTION_KEYS)
-    parts = re.split(rf'\[({sec_pattern})\]', bank_raw)
-    it = iter(parts[1:])
-    for sec in it:
-        sec_content = next(it, '')
-        items = re.findall(r'-\s*([^:\n]+?)\s*:\s*([^\n\r]+)', sec_content)
-        parsed_items = [(name.strip(), val.strip()) for name, val in items]
-        bank_data[sec] = parsed_items
-        if sec != '기타':
-            total_bank_sum_for_sijae += sum(to_int(v) for n, v in parsed_items)
+    # 줄 시작의 [섹션명] 형식만 섹션으로 인식 (항목 안의 [가상] 등은 무시)
+    current_sec = None
+    for line in bank_raw.split('\n'):
+        sec_match = re.match(r'^\[([^\]]+)\]', line.strip())
+        if sec_match:
+            current_sec = sec_match.group(1).strip()
+            if current_sec not in bank_data:
+                bank_data[current_sec] = []
+        elif current_sec and line.strip().startswith('-'):
+            item_match = re.match(r'-\s*([^:]+?)\s*:\s*(.+)', line.strip())
+            if item_match:
+                name = item_match.group(1).strip()
+                val = item_match.group(2).strip()
+                bank_data[current_sec].append((name, val))
+                if '기타' not in current_sec:
+                    total_bank_sum_for_sijae += to_int(val)
 
 # ── USDT 파싱 ────────────────────────────────────────────
 usdt_settle_lines = ""
@@ -196,7 +202,7 @@ with col_right:
         def get_bank_txt(k):
             items = bank_data.get(k, [])
             return f"[{k}]\n" + '\n'.join([f"- {n} : {v}" for n, v in items]) if items else ""
-        bank_text = '\n\n'.join([p for p in [get_bank_txt(k) for k in SECTION_KEYS] if p])
+        bank_text = '\n\n'.join([p for p in [get_bank_txt(k) for k in bank_data.keys()] if p])
 
         merchant_lines = ""
         for key in balance_targets:
