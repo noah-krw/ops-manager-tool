@@ -239,8 +239,12 @@ with col_right:
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
         # 손익 계산
-        rev_val = data.get('b_rev', 0) + int(ada_rev)
-        exp_val = abs(data.get('b_agent', 0)) + abs(data.get('b_gate', 0)) + abs(data.get('b_virtual', 0))
+        tl_rev = data.get('b_rev', 0)
+        rev_val = tl_rev + int(ada_rev)
+        tl_agent = abs(data.get('b_agent', 0))
+        tl_gate  = abs(data.get('b_gate', 0))
+        ada_agent = math.ceil(int(ada_in) * 0.001)
+        exp_val = tl_agent + tl_gate + abs(data.get('b_virtual', 0)) + ada_agent
         sijae_val = total_bank_sum_for_sijae - total_merchant_balance
 
         # USDT 섹션
@@ -269,6 +273,8 @@ with col_right:
                     for t in mbd_targets
                     if data['merchant_in'].get(t,0) or data['merchant_out'].get(t,0)]
         merchant_io_text = '\n'.join(io_lines) if io_lines else ""
+        if int(ada_in) > 0 or int(ada_out) > 0:
+            io_lines.append(f"- v99_BT : {int(ada_in):,} / {int(ada_out):,}")
 
         # ADA 섹션
         ada_section = ""
@@ -298,8 +304,8 @@ with col_right:
 {ada_merchant_section}{usdt_section}{bank_text}
 
 {"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}[손익]
-- 에이전트 : -{abs(data.get('b_agent', 0)):,}
-- 게이트웨이 : -{abs(data.get('b_gate', 0)):,}
+- 에이전트 : TL -{tl_agent:,} / ADA -{ada_agent:,}
+- 게이트웨이 : TL -{tl_gate:,}
 - 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
 - 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
 {other_line}- 최종순익 : {data.get('b_profit', 0):,}
