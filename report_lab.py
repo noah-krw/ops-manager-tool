@@ -94,8 +94,10 @@ with col_left:
         ada_out = st.number_input("ADA 출금", min_value=0, step=100000, key="ada_out",
                                    label_visibility="visible")
     with ada_col3:
-        ada_rev = st.number_input("ADA 매출", min_value=0, step=100000, key="ada_rev",
-                                   label_visibility="visible")
+        ada_rev_auto = math.ceil(int(st.session_state.get('ada_in', 0)) * 0.035 +
+                                  int(st.session_state.get('ada_out', 0)) * 0.02)
+        st.metric("ADA 매출 (자동)", f"{ada_rev_auto:,}")
+        ada_rev = ada_rev_auto
 
     st.divider()
 
@@ -181,7 +183,7 @@ if usdt_raw:
 
 # ── 오른쪽: 결과 ─────────────────────────────────────────
 with col_right:
-    if not raw_input:
+    if not raw_input and not ada_input:
         st.info("👈 왼쪽에 데이터를 입력하면 정산표가 생성됩니다.")
     else:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
@@ -305,10 +307,11 @@ with col_right:
 
 {"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}[손익]
 - 에이전트 : TL -{tl_agent:,} / ADA -{ada_agent:,}
-- 게이트웨이 : TL -{tl_gate:,}
+- 게이트웨이 : TL -{tl_gate:,} / ADA -0
 - 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
-- 일매출 및 일지출 : {rev_val:,} / -{exp_val:,}
-{other_line}- 최종순익 : {data.get('b_profit', 0):,}
+- 일매출 : TL {tl_rev:,} / ADA {int(ada_rev):,}
+- 일지출 : TL -{(tl_agent + tl_gate + abs(data.get('b_virtual', 0))):,} / ADA -{ada_agent:,}
+{other_line}- 최종순익 : {data.get('b_profit', 0) + int(ada_rev) - ada_agent:,}
 - 시재금 : {sijae_val:,} (기타 제외)
 """
 
