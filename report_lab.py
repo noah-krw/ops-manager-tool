@@ -88,13 +88,10 @@ with col_left:
         if in_m:  p_ada_in  = to_int(in_m.group(1))
         if out_m: p_ada_out = to_int(out_m.group(1))
 
-    st.caption(f"✨ ADA 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,}")
-    a_col1, a_col2, a_col3 = st.columns(3)
-    with a_col1: u_ada_in  = st.number_input("ADA 입금", value=p_ada_in,  step=100000)
-    with a_col2: u_ada_out = st.number_input("ADA 출금", value=p_ada_out, step=100000)
-    with a_col3:
-        u_ada_rev = math.ceil(u_ada_in * 0.035 + u_ada_out * 0.02)
-        st.metric("ADA 매출 (자동)", f"{u_ada_rev:,}")
+    u_ada_in  = p_ada_in
+    u_ada_out = p_ada_out
+    u_ada_rev = math.ceil(u_ada_in * 0.035 + u_ada_out * 0.02)
+    st.caption(f"✨ ADA 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,} / 매출 {u_ada_rev:,}")
 
     st.divider()
 
