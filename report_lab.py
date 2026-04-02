@@ -5,8 +5,8 @@ import re
 import math
 from datetime import datetime
 
-# NOA SMART REPORT v4.9.4
-st.set_page_config(page_title="NOA SMART REPORT v4.9.4", layout="wide")
+# NOA SMART REPORT v4.9.5
+st.set_page_config(page_title="NOA SMART REPORT v4.9.5", layout="wide")
 
 st.markdown("""
 <style>
@@ -27,8 +27,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.4")
+st.title("🚀 노아 스마트 정산기 v4.9.5")
 
+# 숫자 추출 유틸리티 (에러 방지를 위해 영문 이름 유지)
 def to_int_v2(val):
     if not val: return 0
     num_str = re.sub(r'[^\d]', '', str(val))
@@ -58,11 +59,13 @@ col_left, col_right = st.columns([1, 1], gap="large")
 with col_left:
     st.info("💡 데이터를 순서대로 입력하세요.")
 
+    # 1. TL 어드민
     raw_input = st.text_area("📋 1. TL 어드민 텍스트", height=150, key="raw_input")
     if st.button("🗑 TL 삭제", key="clear_raw"): st.session_state['_clear_raw_input'] = True
 
     st.divider()
 
+    # 2. ADA 어드민 및 자동 파싱
     ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (머천트 목록)", height=150, key="ada_input")
     if st.button("🗑 ADA 삭제", key="clear_ada"): st.session_state['_clear_ada_input'] = True
 
@@ -118,17 +121,30 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # ADA 업체 밸런스 (강력한 파싱 로직 적용)
+        # [핵심 수정] ADA 업체 밸런스 파싱 강화
         ada_targets = ['v99_BT', 'v99_GAME_BT', 'v99_GIFT']
         total_ada_bal = 0
         ada_bal_text = ""
         for t in ada_targets:
-            # 상태값(live/test) 뒤의 숫자뭉치를 찾되, 뒤에 날짜 패턴(YY.MM.DD)이 오면 거기서 끊음
-            m = re.search(rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+?)(?=\d{{2}}\.\d{{2}}\.\d{{2}}|$)", ada_full)
-            val = to_int_v2(m.group(1)) if m else 0
+            # 1단계: 업체 아이디 뒤에 상태값(live/test + N/Y)을 찾고 그 뒤에 나오는 숫자+특수문자 뭉치를 가져옴
+            pattern = rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,.\-]+)"
+            m = re.search(pattern, ada_full)
+            if m:
+                raw_str = m.group(1)
+                # 2단계: 가져온 뭉치에서 날짜 패턴(YY.MM.DD)이 시작되는 위치를 찾음
+                date_find = re.search(r'\d{2}\.\d{2}\.\d{2}', raw_str)
+                if date_find:
+                    # 날짜가 시작되기 직전까지만 진짜 금액으로 인정
+                    val = to_int_v2(raw_str[:date_find.start()])
+                else:
+                    val = to_int_v2(raw_str)
+            else:
+                val = 0
+            
             data['merchants'][t] = val
             total_ada_bal += val
-            if val > 0 or t == 'v99_BT': ada_bal_text += f"- {t} : {val:,}\n"
+            if val > 0 or t == 'v99_BT': 
+                ada_bal_text += f"- {t} : {val:,}\n"
 
         # 은행 섹션
         bank_info = {}
@@ -146,7 +162,7 @@ with col_right:
                         bank_info[curr].append(f"- {m_item.group(1).strip()} : {m_item.group(2).strip()}")
                         if '기타' not in curr: total_bank_sum += to_int_v2(m_item.group(2))
 
-        # 리포트 생성 (tl_rev:, 오류 수정 완료)
+        # 리포트 생성
         report = f"""***{now_str} 티엘 현황***
 
 [본사]
@@ -179,8 +195,11 @@ with col_right:
         h = max(500, line_count * 22 + 60)
         components.html(f"""
             <textarea id="rep" style="width:100%;height:{h}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
-            <button onclick="var t=document.getElementById('rep');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';"
-            style="margin-top:8px;padding:8px 16px;background:#38bdf8;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">📋 보고서 복사</button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                <span style="font-family:'Courier New',monospace;font-size:11px;color:rgba(255,255,255,0.3);">✎ 직접 수정 가능</span>
+                <button onclick="var t=document.getElementById('rep');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';"
+                style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
+            </div>
         """, height=h+60)
 
         sijae = total_bank_sum - (total_tl_bal + total_ada_bal)
