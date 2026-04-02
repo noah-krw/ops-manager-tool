@@ -5,8 +5,8 @@ import re
 import math
 from datetime import datetime
 
-# NOA SMART REPORT v4.9.14
-st.set_page_config(page_title="NOA SMART REPORT v4.9.14", layout="wide")
+# NOA SMART REPORT v4.9.15
+st.set_page_config(page_title="NOA SMART REPORT v4.9.15", layout="wide")
 
 st.markdown("""
 <style>
@@ -27,7 +27,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.14")
+st.title("🚀 노아 스마트 정산기 v4.9.15")
 
 def to_int_clean(val):
     if not val: return 0
@@ -55,14 +55,14 @@ for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.info("💡 ADA 에이전트 수수료: 입금(0.1%) + 출금(0.1%) 합산 방식으로 수정되었습니다.")
+    st.info("💡 손익 섹션에 '일지출' 항목(TL/ADA 합산)이 추가되었습니다.")
 
     raw_input = st.text_area("📋 1. TL 어드민 텍스트", height=150, key="raw_input")
     if st.button("🗑 TL 삭제", key="clear_raw"): st.session_state['_clear_raw_input'] = True
 
     st.divider()
 
-    ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (전체 복사)", height=150, key="ada_input")
+    ada_input = st.text_area("📋 2. ADA 어드민 텍스트", height=150, key="ada_input")
     if st.button("🗑 ADA 삭제", key="clear_ada"): st.session_state['_clear_ada_input'] = True
 
     # ADA 요약 파싱
@@ -80,7 +80,6 @@ with col_left:
     with a_col1: u_ada_in = st.number_input("ADA 입금액", value=p_ada_in, step=100000)
     with a_col2: u_ada_out = st.number_input("ADA 출금액", value=p_ada_out, step=100000)
     with a_col3: 
-        # ADA 매출 계산 (입금 3.5% + 출금 2% 유지)
         u_ada_rev = math.ceil(u_ada_in * 0.035 + u_ada_out * 0.02)
         st.metric("ADA 매출 (자동)", f"{u_ada_rev:,}")
 
@@ -101,16 +100,16 @@ with col_right:
         date_m = re.search(r'(\d{4})-(\d{2})-(\d{2})', tl_full)
         now_str = f"{date_m.group(2)}월 {date_m.group(3)}일" if date_m else datetime.now().strftime("%m월 %d일")
 
-        # TL 요약
+        # TL 요약 수치 파싱
         summary_m = re.search(r'Summary\s*(.*)', tl_full)
         tl_profit = 0
+        tl_agent, tl_gate, tl_virtual, tl_rev = 0, 0, 0, 0
         if summary_m:
             nums = re.findall(r'[\d,.-]+', summary_m.group(1))
             if len(nums) >= 17:
-                data['b_in'], data['b_out'], data['b_rev'] = to_int_signed(nums[0]), to_int_signed(nums[2]), to_int_signed(nums[7])
-                data['b_agent'], data['b_gate'], data['b_virtual'] = to_int_signed(nums[10]), to_int_signed(nums[11]), to_int_signed(nums[14])
-                data['b_other'], data['b_profit'] = to_int_signed(nums[13]), to_int_signed(nums[16])
-                tl_profit = data['b_profit']
+                data['b_in'], data['b_out'], tl_rev = to_int_signed(nums[0]), to_int_signed(nums[2]), to_int_signed(nums[7])
+                tl_agent, tl_gate, tl_virtual = to_int_signed(nums[10]), to_int_signed(nums[11]), to_int_signed(nums[14])
+                tl_profit = to_int_signed(nums[16])
 
         # TL 업체 파싱
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
@@ -121,7 +120,7 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # ADA 업체 파싱
+        # ADA 업체 파싱 (v4.9.13 방식 유지)
         ada_targets = ['v99_BT', 'v99_GAME_BT', 'v99_GIFT']
         total_ada_bal = 0
         ada_bal_text = ""
@@ -133,14 +132,17 @@ with col_right:
                 if m:
                     raw_blob = re.sub(r'[^\d]', '', m.group(1))
                     if len(raw_blob) > 2: val = int(raw_blob[:-2])
-            
             data['merchants'][t] = val
             total_ada_bal += val
             if val > 0 or t == 'v99_BT':
                 ada_bal_text += f"- {t} : {val:,}\n"
 
-        # [수정] ADA 에이전트 수수료 수기 계산 로직 (입금액 0.1% + 출금액 0.1%)
+        # [계산] 지출 및 손익 로직
         ada_agent_fee = math.ceil((u_ada_in + u_ada_out) * 0.001)
+        
+        # 일지출 합계 (절대값 처리)
+        tl_exp_total = abs(tl_agent) + abs(tl_gate) + abs(tl_virtual)
+        ada_exp_total = ada_agent_fee
 
         # 은행 메모 파싱
         bank_info = {}
@@ -153,18 +155,18 @@ with col_right:
                     curr = m_sec.group(1).strip()
                     bank_info[curr] = []
                 elif curr and line.strip().startswith('-'):
-                    m_item = re.match(r'-\s*([^:]+?)\s* : \s*(.+)', line.strip())
+                    m_item = re.match(r'-\s*([^:]+?)\s*:\s*(.+)', line.strip())
                     if m_item:
                         bank_info[curr].append(f"- {m_item.group(1).strip()} : {m_item.group(2).strip()}")
                         if '기타' not in curr: total_bank_sum += to_int_clean(m_item.group(2))
 
-        # 리포트 생성
+        # 최종 리포트 텍스트
         report = f"""***{now_str} 티엘 현황***
 
 [본사]
 - 입금 : {data.get('b_in', 0):,}
 - 출금 : {data.get('b_out', 0):,}
-- 매출 : {data.get('b_rev', 0):,}
+- 매출 : {tl_rev:,}
 
 [ADA]
 - 입금 : {u_ada_in:,}
@@ -180,10 +182,11 @@ with col_right:
 {chr(10).join([f"[{k}]" + chr(10) + chr(10).join(items) for k, items in bank_info.items()])}
 
 [손익]
-- 에이전트 : TL -{abs(data.get('b_agent', 0)):,} / ADA -{ada_agent_fee:,}
-- 게이트웨이 : TL -{abs(data.get('b_gate', 0)):,}
-- 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
-- 일매출 : TL {data.get('b_rev', 0):,} / ADA {u_ada_rev:,}
+- 에이전트 : TL -{abs(tl_agent):,} / ADA -{ada_agent_fee:,}
+- 게이트웨이 : TL -{abs(tl_gate):,}
+- 가상 수수료 : -{abs(tl_virtual):,}
+- 일매출 : TL {tl_rev:,} / ADA {u_ada_rev:,}
+- 일지출 : TL -{tl_exp_total:,} / ADA -{ada_exp_total:,}
 - 최종순익 : {tl_profit + u_ada_rev - ada_agent_fee:,}
 - 시재금 : {total_bank_sum - (total_tl_bal + total_ada_bal):,}
 """
