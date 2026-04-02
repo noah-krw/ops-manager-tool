@@ -5,8 +5,8 @@ import re
 import math
 from datetime import datetime
 
-# NOA SMART REPORT v4.9.7
-st.set_page_config(page_title="NOA SMART REPORT v4.9.7", layout="wide")
+# NOA SMART REPORT v4.9.8
+st.set_page_config(page_title="NOA SMART REPORT v4.9.8", layout="wide")
 
 st.markdown("""
 <style>
@@ -27,7 +27,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.7")
+st.title("🚀 노아 스마트 정산기 v4.9.8")
 
 def to_int_v2(val):
     if not val: return 0
@@ -55,7 +55,7 @@ for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.info("💡 ADA 업체 밸런스 추출 로직이 강화되었습니다.")
+    st.info("💡 ADA 업체 밸런스 추출 로직이 '상태값 뒤 숫자' 기준으로 강화되었습니다.")
 
     raw_input = st.text_area("📋 1. TL 어드민 텍스트", height=150, key="raw_input")
     if st.button("🗑 TL 삭제", key="clear_raw"): st.session_state['_clear_raw_input'] = True
@@ -102,13 +102,14 @@ with col_right:
 
         # TL 본사 수치
         summary_m = re.search(r'Summary\s*(.*)', tl_full)
-        tl_in, tl_out, tl_rev, tl_agent, tl_gate, tl_virtual, tl_profit = 0, 0, 0, 0, 0, 0, 0
+        tl_profit = 0
         if summary_m:
             nums = re.findall(r'[\d,.-]+', summary_m.group(1))
             if len(nums) >= 17:
-                tl_in, tl_out, tl_rev = to_int_signed(nums[0]), to_int_signed(nums[2]), to_int_signed(nums[7])
-                tl_agent, tl_gate, tl_virtual = to_int_signed(nums[10]), to_int_signed(nums[11]), to_int_signed(nums[14])
-                tl_profit = to_int_signed(nums[16])
+                data['b_in'], data['b_out'], data['b_rev'] = to_int_signed(nums[0]), to_int_signed(nums[2]), to_int_signed(nums[7])
+                data['b_agent'], data['b_gate'], data['b_virtual'] = to_int_signed(nums[10]), to_int_signed(nums[11]), to_int_signed(nums[14])
+                data['b_other'], data['b_profit'] = to_int_signed(nums[13]), to_int_signed(nums[16])
+                tl_profit = data['b_profit']
 
         # TL 업체 파싱
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
@@ -119,20 +120,20 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # [해결] ADA 업체 밸런스: 날짜(YY.MM.DD) 앞의 숫자만 정밀 추출
+        # [해결] ADA 업체 밸런스 정밀 파싱
         ada_targets = ['v99_BT', 'v99_GAME_BT', 'v99_GIFT']
         total_ada_bal = 0
         ada_bal_text = ""
         for t in ada_targets:
-            # 로직: 업체명 뒤의 영어(liveN 등)를 건너뛰고, 날짜(XX.XX.XX)가 나오기 전까지의 숫자만 가져옴
-            pattern = rf"{re.escape(t)}.*?[A-Za-z]\s*([\d,]+)(?=\d{{2}}\.\d{{2}})"
+            # 상태값(liveN, liveY 등) 직후에 나오는 숫자만 긁고, 날짜(YY.MM.DD) 앞에서 멈춤
+            pattern = rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)(?=\d{{2}}\.\d{{2}}\.\d{{2}})"
             m = re.search(pattern, ada_full)
             
             if m:
                 val = to_int_v2(m.group(1))
             else:
-                # 0원일 경우 또는 날짜가 없을 때를 대비한 2차 파싱
-                m_alt = re.search(rf"{re.escape(t)}.*?[A-Za-z]\s*([\d,]+)", ada_full)
+                # 잔액이 0이거나 날짜 형식이 다를 경우를 대비한 2차 시도
+                m_alt = re.search(rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)", ada_full)
                 val = to_int_v2(m_alt.group(1)) if m_alt else 0
             
             data['merchants'][t] = val
@@ -160,9 +161,9 @@ with col_right:
         report = f"""***{now_str} 티엘 현황***
 
 [본사]
-- 입금 : {tl_in:,}
-- 출금 : {tl_out:,}
-- 매출 : {tl_rev:,}
+- 입금 : {data.get('b_in', 0):,}
+- 출금 : {data.get('b_out', 0):,}
+- 매출 : {data.get('b_rev', 0):,}
 
 [ADA]
 - 입금 : {u_ada_in:,}
@@ -178,10 +179,10 @@ with col_right:
 {chr(10).join([f"[{k}]" + chr(10) + chr(10).join(items) for k, items in bank_info.items()])}
 
 [손익]
-- 에이전트 : TL -{tl_agent:,} / ADA -{math.ceil(u_ada_in*0.001):,}
-- 게이트웨이 : TL -{tl_gate:,}
-- 가상 수수료 : -{tl_virtual:,}
-- 일매출 : TL {tl_rev:,} / ADA {u_ada_rev:,}
+- 에이전트 : TL -{abs(data.get('b_agent', 0)):,} / ADA -{math.ceil(u_ada_in*0.001):,}
+- 게이트웨이 : TL -{abs(data.get('b_gate', 0)):,}
+- 가상 수수료 : -{abs(data.get('b_virtual', 0)):,}
+- 일매출 : TL {data.get('b_rev', 0):,} / ADA {u_ada_rev:,}
 - 최종순익 : {tl_profit + u_ada_rev - math.ceil(u_ada_in*0.001):,}
 - 시재금 : {total_bank_sum - (total_tl_bal + total_ada_bal):,}
 """
