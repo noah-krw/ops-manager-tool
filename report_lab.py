@@ -5,8 +5,8 @@ import re
 import math
 from datetime import datetime
 
-# NOA SMART REPORT v4.9.6
-st.set_page_config(page_title="NOA SMART REPORT v4.9.6", layout="wide")
+# NOA SMART REPORT v4.9.7
+st.set_page_config(page_title="NOA SMART REPORT v4.9.7", layout="wide")
 
 st.markdown("""
 <style>
@@ -27,11 +27,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.6")
+st.title("🚀 노아 스마트 정산기 v4.9.7")
 
 def to_int_v2(val):
     if not val: return 0
-    # 숫자만 추출
     num_str = re.sub(r'[^\d]', '', str(val))
     return int(num_str) if num_str else 0
 
@@ -46,7 +45,7 @@ def to_int_signed(val):
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     if k not in st.session_state: st.session_state[k] = ""
 
-# 삭제 기능
+# 삭제 플래그
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     flag = f'_clear_{k}'
     if st.session_state.get(flag):
@@ -56,29 +55,29 @@ for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.info("💡 ADA 어드민 텍스트를 붙여넣으면 날짜를 제외하고 금액만 추출합니다.")
+    st.info("💡 ADA 업체 밸런스 추출 로직이 강화되었습니다.")
 
     raw_input = st.text_area("📋 1. TL 어드민 텍스트", height=150, key="raw_input")
     if st.button("🗑 TL 삭제", key="clear_raw"): st.session_state['_clear_raw_input'] = True
 
     st.divider()
 
-    ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (머천트 목록)", height=150, key="ada_input")
+    ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (전체 복사)", height=150, key="ada_input")
     if st.button("🗑 ADA 삭제", key="clear_ada"): st.session_state['_clear_ada_input'] = True
 
-    # ADA 상단 입출금 합계 파싱
-    parsed_ada_in, parsed_ada_out = 0, 0
+    # ADA 상단 요약 파싱
+    p_ada_in, p_ada_out = 0, 0
     if ada_input:
-        in_match = re.search(r'입금\s*요청.+?금일완료\d+\s*([\d,]+)원', ada_input.replace('\n',' '))
-        out_match = re.search(r'출금\s*요청.+?금일완료\d+\s*([\d,]+)원', ada_input.replace('\n',' '))
-        if in_match: parsed_ada_in = to_int_v2(in_match.group(1))
-        if out_match: parsed_ada_out = to_int_v2(out_match.group(1))
+        in_m = re.search(r'입금\s*요청.+?금일완료\d+\s*([\d,]+)원', ada_input.replace('\n',' '))
+        out_m = re.search(r'출금\s*요청.+?금일완료\d+\s*([\d,]+)원', ada_input.replace('\n',' '))
+        if in_m: p_ada_in = to_int_v2(in_m.group(1))
+        if out_m: p_ada_out = to_int_v2(out_m.group(1))
 
-    st.caption(f"✨ ADA 감지: 입금 {parsed_ada_in:,} / 출금 {parsed_ada_out:,}")
+    st.caption(f"✨ ADA 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,}")
     
     a_col1, a_col2, a_col3 = st.columns(3)
-    with a_col1: u_ada_in = st.number_input("ADA 입금액", value=parsed_ada_in, step=100000)
-    with a_col2: u_ada_out = st.number_input("ADA 출금액", value=parsed_ada_out, step=100000)
+    with a_col1: u_ada_in = st.number_input("ADA 입금액", value=p_ada_in, step=100000)
+    with a_col2: u_ada_out = st.number_input("ADA 출금액", value=p_ada_out, step=100000)
     with a_col3: 
         u_ada_rev = math.ceil(u_ada_in * 0.035 + u_ada_out * 0.02)
         st.metric("ADA 매출", f"{u_ada_rev:,}")
@@ -97,20 +96,21 @@ with col_right:
         tl_full = raw_input.replace('\n', ' ')
         ada_full = ada_input.replace('\n', ' ')
 
-        date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', tl_full)
-        now_str = f"{date_match.group(2)}월 {date_match.group(3)}일" if date_match else datetime.now().strftime("%m월 %d일")
+        # 날짜 추출
+        date_m = re.search(r'(\d{4})-(\d{2})-(\d{2})', tl_full)
+        now_str = f"{date_m.group(2)}월 {date_m.group(3)}일" if date_m else datetime.now().strftime("%m월 %d일")
 
-        # TL 본사 요약 파싱
-        summary_match = re.search(r'Summary\s*(.*)', tl_full)
+        # TL 본사 수치
+        summary_m = re.search(r'Summary\s*(.*)', tl_full)
         tl_in, tl_out, tl_rev, tl_agent, tl_gate, tl_virtual, tl_profit = 0, 0, 0, 0, 0, 0, 0
-        if summary_match:
-            nums = re.findall(r'[\d,.-]+', summary_match.group(1))
+        if summary_m:
+            nums = re.findall(r'[\d,.-]+', summary_m.group(1))
             if len(nums) >= 17:
                 tl_in, tl_out, tl_rev = to_int_signed(nums[0]), to_int_signed(nums[2]), to_int_signed(nums[7])
                 tl_agent, tl_gate, tl_virtual = to_int_signed(nums[10]), to_int_signed(nums[11]), to_int_signed(nums[14])
                 tl_profit = to_int_signed(nums[16])
 
-        # TL 업체 밸런스 파싱
+        # TL 업체 파싱
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_tl_bal = 0
         for t in tl_targets:
@@ -119,21 +119,20 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # [수정됨] ADA 업체 밸런스: 날짜 패턴(YY.MM.DD) 직전까지만 금액으로 추출
+        # [해결] ADA 업체 밸런스: 날짜(YY.MM.DD) 앞의 숫자만 정밀 추출
         ada_targets = ['v99_BT', 'v99_GAME_BT', 'v99_GIFT']
         total_ada_bal = 0
         ada_bal_text = ""
         for t in ada_targets:
-            # 1. 해당 업체명 뒤에 나오는 숫자뭉치들 중 날짜 패턴(XX.XX.XX) 앞에 있는 것을 찾음
-            # (?=\d{2}\.\d{2}) 이 부분이 "뒤에 날짜가 오기 전까지만" 이라는 뜻
-            pattern = rf"{re.escape(t)}.+?([\d,]+)(?=\d{{2}}\.\d{{2}})"
+            # 로직: 업체명 뒤의 영어(liveN 등)를 건너뛰고, 날짜(XX.XX.XX)가 나오기 전까지의 숫자만 가져옴
+            pattern = rf"{re.escape(t)}.*?[A-Za-z]\s*([\d,]+)(?=\d{{2}}\.\d{{2}})"
             m = re.search(pattern, ada_full)
             
             if m:
                 val = to_int_v2(m.group(1))
             else:
-                # 날짜가 아예 없는 경우를 대비한 일반 파싱
-                m_alt = re.search(rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)", ada_full)
+                # 0원일 경우 또는 날짜가 없을 때를 대비한 2차 파싱
+                m_alt = re.search(rf"{re.escape(t)}.*?[A-Za-z]\s*([\d,]+)", ada_full)
                 val = to_int_v2(m_alt.group(1)) if m_alt else 0
             
             data['merchants'][t] = val
@@ -141,7 +140,7 @@ with col_right:
             if val > 0 or t == 'v99_BT':
                 ada_bal_text += f"- {t} : {val:,}\n"
 
-        # 은행 메모 파싱
+        # 은행 파싱
         bank_info = {}
         total_bank_sum = 0
         if bank_raw:
@@ -157,7 +156,7 @@ with col_right:
                         bank_info[curr].append(f"- {m_item.group(1).strip()} : {m_item.group(2).strip()}")
                         if '기타' not in curr: total_bank_sum += to_int_v2(m_item.group(2))
 
-        # 리포트 출력
+        # 리포트 생성
         report = f"""***{now_str} 티엘 현황***
 
 [본사]
@@ -186,12 +185,15 @@ with col_right:
 - 최종순익 : {tl_profit + u_ada_rev - math.ceil(u_ada_in*0.001):,}
 - 시재금 : {total_bank_sum - (total_tl_bal + total_ada_bal):,}
 """
-        h = max(500, report.count("\n") * 22 + 60)
+        h = max(500, report.count("\n") * 22 + 65)
         components.html(f"""
             <textarea id="rep" style="width:100%;height:{h}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
-            <button onclick="var t=document.getElementById('rep');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';"
-            style="margin-top:8px;padding:10px 20px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
-        """, height=h+70)
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+                <span style="font-family:'Courier New',monospace;font-size:11px;color:rgba(255,255,255,0.3);">✎ 직접 수정 가능</span>
+                <button onclick="var t=document.getElementById('rep');t.select();document.execCommand('copy');this.innerText='✅ 복사완료';"
+                style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
+            </div>
+        """, height=h+75)
 
         sijae = total_bank_sum - (total_tl_bal + total_ada_bal)
         risk_buy = max(0, math.floor((total_bank_sum - 30000000) / 10000000) * 10000000)
