@@ -220,8 +220,8 @@ with col_right:
         if ada_input:
             ada_full = ada_full_top
             for t in ada_merchants:
-                # 패턴: 아이디+붙은텍스트+쉼표숫자+날짜 형식
-                pattern = rf'{re.escape(t)}\S+?(\d{{1,3}}(?:,\d{{3}})+)\d{{2}}\.\d{{2}}\.\d{{2}}'
+                # 단순패턴: 아이디 이후 첫 쉼표구분 숫자
+                pattern = rf'{re.escape(t)}.+?(\d{{1,3}}(?:,\d{{3}})+)'
                 m = re.search(pattern, ada_full)
                 val = to_int(m.group(1)) if m else 0
                 if val > 0:
