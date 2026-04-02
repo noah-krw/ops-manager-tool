@@ -231,9 +231,9 @@ with col_right:
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
         # 손익 계산
-        ada_agent = math.ceil(u_ada_in * 0.001)
+        ada_agent = math.ceil((int(u_ada_in) + int(u_ada_out)) * 0.001)
         tl_exp    = abs(tl_agent) + abs(tl_gate) + abs(tl_virtual)
-        ada_exp   = ada_agent
+        ada_exp   = ada_agent  # ADA는 에이전트만 (게이트 없음)
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
         sijae_val = total_bank_sum - (total_tl_bal + total_ada_bal)
 
