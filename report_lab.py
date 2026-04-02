@@ -5,8 +5,8 @@ import re
 import math
 from datetime import datetime
 
-# NOA SMART REPORT v4.9.8
-st.set_page_config(page_title="NOA SMART REPORT v4.9.8", layout="wide")
+# NOA SMART REPORT v4.9.9
+st.set_page_config(page_title="NOA SMART REPORT v4.9.9", layout="wide")
 
 st.markdown("""
 <style>
@@ -27,10 +27,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚀 노아 스마트 정산기 v4.9.8")
+st.title("🚀 노아 스마트 정산기 v4.9.9")
 
 def to_int_v2(val):
     if not val: return 0
+    # 숫자만 남기고 제거
     num_str = re.sub(r'[^\d]', '', str(val))
     return int(num_str) if num_str else 0
 
@@ -45,7 +46,7 @@ def to_int_signed(val):
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     if k not in st.session_state: st.session_state[k] = ""
 
-# 삭제 플래그
+# 삭제 플래그 처리
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     flag = f'_clear_{k}'
     if st.session_state.get(flag):
@@ -55,14 +56,14 @@ for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
 col_left, col_right = st.columns([1, 1], gap="large")
 
 with col_left:
-    st.info("💡 ADA 업체 밸런스 추출 로직이 '상태값 뒤 숫자' 기준으로 강화되었습니다.")
+    st.info("💡 ADA 파싱 로직을 '상태값과 날짜 사이 추출' 방식으로 완벽 수정했습니다.")
 
     raw_input = st.text_area("📋 1. TL 어드민 텍스트", height=150, key="raw_input")
     if st.button("🗑 TL 삭제", key="clear_raw"): st.session_state['_clear_raw_input'] = True
 
     st.divider()
 
-    ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (전체 복사)", height=150, key="ada_input")
+    ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (머천트 목록)", height=150, key="ada_input")
     if st.button("🗑 ADA 삭제", key="clear_ada"): st.session_state['_clear_ada_input'] = True
 
     # ADA 상단 요약 파싱
@@ -73,7 +74,7 @@ with col_left:
         if in_m: p_ada_in = to_int_v2(in_m.group(1))
         if out_m: p_ada_out = to_int_v2(out_m.group(1))
 
-    st.caption(f"✨ ADA 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,}")
+    st.caption(f"✨ ADA 자동 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,}")
     
     a_col1, a_col2, a_col3 = st.columns(3)
     with a_col1: u_ada_in = st.number_input("ADA 입금액", value=p_ada_in, step=100000)
@@ -96,11 +97,10 @@ with col_right:
         tl_full = raw_input.replace('\n', ' ')
         ada_full = ada_input.replace('\n', ' ')
 
-        # 날짜 추출
         date_m = re.search(r'(\d{4})-(\d{2})-(\d{2})', tl_full)
         now_str = f"{date_m.group(2)}월 {date_m.group(3)}일" if date_m else datetime.now().strftime("%m월 %d일")
 
-        # TL 본사 수치
+        # TL 요약
         summary_m = re.search(r'Summary\s*(.*)', tl_full)
         tl_profit = 0
         if summary_m:
@@ -111,7 +111,7 @@ with col_right:
                 data['b_other'], data['b_profit'] = to_int_signed(nums[13]), to_int_signed(nums[16])
                 tl_profit = data['b_profit']
 
-        # TL 업체 파싱
+        # TL 업체
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_tl_bal = 0
         for t in tl_targets:
@@ -120,19 +120,19 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # [해결] ADA 업체 밸런스 정밀 파싱
+        # [최종 수정] ADA 업체 밸런스: 업체명 -> 상태값 -> 금액 -> 날짜 순서 정밀 추적
         ada_targets = ['v99_BT', 'v99_GAME_BT', 'v99_GIFT']
         total_ada_bal = 0
         ada_bal_text = ""
         for t in ada_targets:
-            # 상태값(liveN, liveY 등) 직후에 나오는 숫자만 긁고, 날짜(YY.MM.DD) 앞에서 멈춤
-            pattern = rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)(?=\d{{2}}\.\d{{2}}\.\d{{2}})"
+            # 상태값(liveN/Y 등) 뒤의 숫자군을 찾고, 연도(26.04) 앞에서 정확히 멈춤
+            pattern = rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)(?=\d{{2}}\.\d{{2}})"
             m = re.search(pattern, ada_full)
             
             if m:
                 val = to_int_v2(m.group(1))
             else:
-                # 잔액이 0이거나 날짜 형식이 다를 경우를 대비한 2차 시도
+                # 0원일 경우 등 예외 처리
                 m_alt = re.search(rf"{re.escape(t)}.*?(?:live|test)[NY]\s*([\d,]+)", ada_full)
                 val = to_int_v2(m_alt.group(1)) if m_alt else 0
             
@@ -141,7 +141,7 @@ with col_right:
             if val > 0 or t == 'v99_BT':
                 ada_bal_text += f"- {t} : {val:,}\n"
 
-        # 은행 파싱
+        # 은행 메모
         bank_info = {}
         total_bank_sum = 0
         if bank_raw:
@@ -157,7 +157,7 @@ with col_right:
                         bank_info[curr].append(f"- {m_item.group(1).strip()} : {m_item.group(2).strip()}")
                         if '기타' not in curr: total_bank_sum += to_int_v2(m_item.group(2))
 
-        # 리포트 생성
+        # 최종 리포트 출력
         report = f"""***{now_str} 티엘 현황***
 
 [본사]
