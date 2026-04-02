@@ -262,13 +262,13 @@ with col_right:
 - 출금 : {data.get('b_out', 0):,}
 - 매출 : {tl_rev:,}
 
+[TL업체]
+{tl_merchant_lines}
+
 [ADA]
 - 입금 : {int(u_ada_in):,}
 - 출금 : {int(u_ada_out):,}
 - 매출 : {u_ada_rev:,}
-
-[TL업체]
-{tl_merchant_lines}
 
 [ADA 업체]
 {ada_bal_lines.strip()}
