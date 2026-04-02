@@ -188,8 +188,9 @@ with col_right:
     else:
         data = {'merchants': {}, 'merchant_in': {}, 'merchant_out': {}}
         full = raw_input.replace('\n', ' ')
+        ada_full_top = ada_input.replace('\n', ' ') if ada_input else ''
 
-        # 날짜 추출
+        # 날짜 추출 (TL 없으면 오늘 날짜)
         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', full)
         now_str = f"{date_match.group(2)}월 {date_match.group(3)}일" if date_match else datetime.now().strftime("%m월 %d일")
 
@@ -217,7 +218,7 @@ with col_right:
         total_ada_balance = 0
         ada_balance_lines = ""
         if ada_input:
-            ada_full = ada_input.replace('\n', ' ')
+            ada_full = ada_full_top
             for t in ada_merchants:
                 # 패턴: 아이디+붙은텍스트+쉼표숫자+날짜 형식
                 pattern = rf'{re.escape(t)}\S+?(\d{{1,3}}(?:,\d{{3}})+)\d{{2}}\.\d{{2}}\.\d{{2}}'
