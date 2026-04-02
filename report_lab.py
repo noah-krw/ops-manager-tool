@@ -219,8 +219,8 @@ with col_right:
         if ada_input:
             ada_full = ada_input.replace('\n', ' ')
             for t in ada_merchants:
-                # 머천트 목록: 아이디 뒤에 오는 숫자 (KRW 컬럼)
-                pattern = rf'{re.escape(t)}[^\d]*?(\d{{1,3}}(?:,\d{{3}})+)'
+                # 패턴: 아이디+붙은텍스트+쉼표숫자+날짜 형식
+                pattern = rf'{re.escape(t)}\S+?(\d{{1,3}}(?:,\d{{3}})+)\d{{2}}\.\d{{2}}\.\d{{2}}'
                 m = re.search(pattern, ada_full)
                 val = to_int(m.group(1)) if m else 0
                 if val > 0:
