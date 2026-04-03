@@ -90,7 +90,7 @@ with col_left:
 
     u_ada_in  = p_ada_in
     u_ada_out = p_ada_out
-    u_ada_rev = math.ceil(u_ada_in * 0.035 + u_ada_out * 0.02)
+    u_ada_rev = round(u_ada_in * 0.035 + u_ada_out * 0.02)
     st.caption(f"✨ ADA 감지: 입금 {p_ada_in:,} / 출금 {p_ada_out:,} / 매출 {u_ada_rev:,}")
 
     st.divider()
