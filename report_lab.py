@@ -291,14 +291,14 @@ with col_right:
             </div>
         """, height=h+50)
 
-        risk_buy = max(0, math.floor((total_bank_sum - 30000000) / 10000000) * 10000000)
+        total_merchant_bal = total_tl_bal + total_ada_bal
+        risk_buy = max(0, math.floor((total_bank_sum - 20000000) / 10000000) * 10000000)
         st.markdown(f"""
         <div class="summary-box">
             <p style="margin:0;font-size:14px;color:#38bdf8;">원화시재 : {sijae_val:,}원</p>
             <p style="margin:5px 0;font-size:14px;color:#38bdf8;">은행 잔고 합계 : {total_bank_sum:,}원</p>
-            <p style="margin:5px 0;font-size:14px;color:#38bdf8;">TL 머천트밸런스 : {total_tl_bal:,}원</p>
-            <p style="margin:5px 0;font-size:14px;color:#38bdf8;">ADA 머천트밸런스 : {total_ada_bal:,}원</p>
-            <p style="margin:0;font-size:14px;color:#38bdf8;">리스크 관리형 USDT 구매 : {risk_buy:,}원</p>
-            <p style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.4);">* 유지비 3,000만원 제외 전액 매입 기준</p>
+            <p style="margin:5px 0;font-size:14px;color:#38bdf8;">머천트밸런스 : {total_merchant_bal:,}원</p>
+            <p style="margin:0;font-size:14px;color:#38bdf8;">예상 USDT 구매 : {risk_buy:,}원</p>
+            <p style="margin-top:5px;font-size:11px;color:rgba(255,255,255,0.4);">* 유지비 2,000만원 제외 전액 매입 기준</p>
         </div>
         """, unsafe_allow_html=True)
