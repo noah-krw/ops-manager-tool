@@ -257,35 +257,44 @@ with col_right:
             io_lines.append(f"- v99_BT : {int(u_ada_in):,} / {int(u_ada_out):,}")
         merchant_io_text = '\n'.join(io_lines)
 
-        report = f"""***{now_str} 티엘 현황***
+        # 마감 모드에 따라 추가 섹션 구성
+        if report_mode == "📊 일일 마감":
+            io_section = ""
+            if merchant_io_text:
+                io_section = "[업체별 입금/출금]\n" + merchant_io_text + "\n\n"
+            profit_section = (
+                f"[손익]\n"
+                f"- 에이전트 : TL -{abs(tl_agent):,} / ADA -{ada_agent:,}\n"
+                f"- 게이트웨이 : TL -{abs(tl_gate):,} / ADA -0\n"
+                f"- 가상 수수료 : -{abs(tl_virtual):,}\n"
+                f"- 일매출 : TL {tl_rev:,} / ADA {u_ada_rev:,}\n"
+                f"- 일지출 : TL -{tl_exp:,} / ADA -{ada_exp:,}\n"
+                f"{other_line}"
+                f"- 최종순익 : {tl_profit + u_ada_rev - ada_agent:,}\n"
+            )
+        else:
+            io_section = ""
+            profit_section = ""
 
-[본사]
-- 입금 : {data.get('b_in', 0):,}
-- 출금 : {data.get('b_out', 0):,}
-- 매출 : {tl_rev:,}
-
-[TL업체]
-{tl_merchant_lines}
-
-[ADA]
-- 입금 : {int(u_ada_in):,}
-- 출금 : {int(u_ada_out):,}
-- 매출 : {u_ada_rev:,}
-
-[ADA 업체]
-{ada_bal_lines.strip()}
-
-{usdt_section}{bank_text}
-
-{"[업체별 입금/출금]" + chr(10) + merchant_io_text + chr(10) + chr(10) if merchant_io_text else ""}[손익]
-- 에이전트 : TL -{abs(tl_agent):,} / ADA -{ada_agent:,}
-- 게이트웨이 : TL -{abs(tl_gate):,} / ADA -0
-- 가상 수수료 : -{abs(tl_virtual):,}
-- 일매출 : TL {tl_rev:,} / ADA {u_ada_rev:,}
-- 일지출 : TL -{tl_exp:,} / ADA -{ada_exp:,}
-{other_line}- 최종순익 : {tl_profit + u_ada_rev - ada_agent:,}
-- 시재금 : {sijae_val:,} (기타 제외)
-"""
+        report = (
+            f"***{now_str} 티엘 현황***\n\n"
+            f"[본사]\n"
+            f"- 입금 : {data.get('b_in', 0):,}\n"
+            f"- 출금 : {data.get('b_out', 0):,}\n"
+            f"- 매출 : {tl_rev:,}\n\n"
+            f"[TL업체]\n"
+            f"{tl_merchant_lines}\n\n"
+            f"[ADA]\n"
+            f"- 입금 : {int(u_ada_in):,}\n"
+            f"- 출금 : {int(u_ada_out):,}\n"
+            f"- 매출 : {u_ada_rev:,}\n\n"
+            f"[ADA 업체]\n"
+            f"{ada_bal_lines.strip()}\n\n"
+            f"{usdt_section}{bank_text}\n\n"
+            f"{io_section}"
+            f"{profit_section}"
+            f"- 시재금 : {sijae_val:,} (기타 제외)\n"
+        )
         h = max(600, report.count("\n") * 22 + 65)
         components.html(f"""
             <textarea id="rep" style="width:100%;height:{h}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
@@ -295,7 +304,6 @@ with col_right:
                 style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
             </div>
         """, height=h+50)
-
         total_merchant_bal = total_tl_bal + total_ada_bal
         risk_buy = max(0, math.floor((total_bank_sum - 20000000) / 10000000) * 10000000)
         st.markdown(f"""
