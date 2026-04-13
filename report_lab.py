@@ -37,7 +37,12 @@ st.title("🚀 노아 스마트 정산기 v4.9.15")
 
 def to_int(val):
     if not val: return 0
-    num_str = re.sub(r'[^\d.-]', '', str(val))
+    # 점(.)이 천단위 구분자로 쓰인 경우 처리 (예: 10.000.000)
+    v = str(val).strip()
+    # 점이 여러 개면 천단위 구분자로 판단하고 제거
+    if v.count('.') > 1:
+        v = v.replace('.', '')
+    num_str = re.sub(r'[^\d.-]', '', v)
     if not num_str: return 0
     try: return int(round(float(num_str)))
     except: return 0
@@ -144,13 +149,13 @@ if bank_raw:
 usdt_settle_lines = ""
 usdt_topup_lines  = ""
 if usdt_raw:
-    u_parts = re.split(r'\[(USDT 정산|USDT 탑업)\]', usdt_raw)
+    u_parts = re.split(r'\[\s*(USDT\s*정산|USDT\s*탑업)\s*\]', usdt_raw)
     if len(u_parts) > 1:
         u_it = iter(u_parts[1:])
         for u_sec in u_it:
             u_content = next(u_it, '')
             for name, val in re.findall(r'-\s*([^:\n]+?)\s*:\s*([^\n\r]+)', u_content):
-                if u_sec == "USDT 정산": usdt_settle_lines += f"- {name} : {val}\n"
+                if "정산" in u_sec: usdt_settle_lines += f"- {name} : {val}\n"
                 else: usdt_topup_lines += f"- {name} : {val}\n"
     else:
         for line in usdt_raw.strip().split('\n'):
