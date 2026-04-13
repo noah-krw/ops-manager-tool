@@ -37,9 +37,7 @@ st.title("🚀 노아 스마트 정산기 v4.9.15")
 
 def to_int(val):
     if not val: return 0
-    # 점(.)이 천단위 구분자로 쓰인 경우 처리 (예: 10.000.000)
     v = str(val).strip()
-    # 점이 여러 개면 천단위 구분자로 판단하고 제거
     if v.count('.') > 1:
         v = v.replace('.', '')
     num_str = re.sub(r'[^\d.-]', '', v)
@@ -49,7 +47,6 @@ def to_int(val):
 
 today_str = datetime.now().strftime("%Y-%m-%d")
 
-# ── session_state 초기화 ─────────────────────────────────
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     if k not in st.session_state: st.session_state[k] = ""
 if 'usdt_date' not in st.session_state: st.session_state['usdt_date'] = today_str
@@ -57,7 +54,6 @@ if st.session_state['usdt_date'] != today_str:
     st.session_state['usdt_raw'] = ""
     st.session_state['usdt_date'] = today_str
 
-# ── 삭제 플래그 처리 ────────────────────────────────────
 for k in ['raw_input', 'ada_input', 'usdt_raw', 'bank_raw', 'mbd_raw']:
     flag = f'_clear_{k}'
     if st.session_state.get(flag):
@@ -69,7 +65,10 @@ col_left, col_right = st.columns([1, 1], gap="large")
 with col_left:
     st.info("💡 텍스트 입력창을 순서대로 활용하세요.")
 
-    # 1. TL 어드민
+    # 모드 선택
+    report_mode = st.radio("", ["⏱ 2시간 현황", "📊 일일 마감"],
+                           horizontal=True, label_visibility="collapsed", key="report_mode")
+
     raw_input = st.text_area("📋 1. TL 어드민 텍스트 (본사 손익 현황 + 머천트 관리)",
                               height=150, key="raw_input")
     if st.button("🗑 삭제", key="clear_raw"):
@@ -77,14 +76,12 @@ with col_left:
 
     st.divider()
 
-    # 2. ADA 어드민
     ada_input = st.text_area("📋 2. ADA 어드민 텍스트 (머천트 목록 페이지)",
                               height=150, key="ada_input",
                               placeholder="머천트 목록 페이지 전체를 복사해서 붙여넣으세요.")
     if st.button("🗑 삭제", key="clear_ada"):
         st.session_state['_clear_ada_input'] = True
 
-    # ADA 입출금 자동 감지
     p_ada_in, p_ada_out = 0, 0
     if ada_input:
         ada_cleaned = ada_input.replace('\n', ' ')
@@ -100,7 +97,6 @@ with col_left:
 
     st.divider()
 
-    # 3. USDT 내역
     usdt_raw = st.text_area("💱 3. USDT 내역", height=130, key="usdt_raw",
         placeholder="정산 spfxm, 7000000\n탑업 dr188, 50000000")
     if st.button("🗑 삭제", key="clear_usdt"):
@@ -112,7 +108,6 @@ with col_left:
 
     st.divider()
 
-    # 4. 은행 메모
     bank_raw = st.text_area("🏦 4. 은행 메모", height=130, key="bank_raw",
         placeholder="[앞장]- 이름 : 금액...")
     if st.button("🗑 삭제", key="clear_bank"):
@@ -120,7 +115,6 @@ with col_left:
 
     st.divider()
 
-    # 5. 머천트 통계
     mbd_raw = st.text_area("📊 5. 머천트 통계 (Merchant By Date)", height=130, key="mbd_raw",
         placeholder="Merchant By Date Statistics 페이지를 복사해서 붙여넣으세요.")
     if st.button("🗑 삭제", key="clear_mbd"):
@@ -182,26 +176,23 @@ with col_right:
         tl_full  = raw_input.replace('\n', ' ')
         ada_full = ada_input.replace('\n', ' ')
 
-        # 날짜
         date_m = re.search(r'(\d{4})-(\d{2})-(\d{2})', tl_full)
         now_str = f"{date_m.group(2)}월 {date_m.group(3)}일" if date_m else datetime.now().strftime("%m월 %d일")
 
-        # TL 본사 수치
         tl_rev, tl_agent, tl_gate, tl_virtual, tl_profit = 0, 0, 0, 0, 0
         summary_m = re.search(r'Summary\s*(.*)', tl_full)
         if summary_m:
             nums = re.findall(r'[\d,.-]+', summary_m.group(1))
             if len(nums) >= 17:
-                data['b_in']  = to_int(nums[0])
-                data['b_out'] = to_int(nums[2])
-                tl_rev        = to_int(nums[7])
-                tl_agent      = to_int(nums[10])
-                tl_gate       = to_int(nums[11])
-                tl_virtual    = to_int(nums[14])
+                data['b_in']    = to_int(nums[0])
+                data['b_out']   = to_int(nums[2])
+                tl_rev          = to_int(nums[7])
+                tl_agent        = to_int(nums[10])
+                tl_gate         = to_int(nums[11])
+                tl_virtual      = to_int(nums[14])
                 data['b_other'] = to_int(nums[13])
-                tl_profit     = to_int(nums[16])
+                tl_profit       = to_int(nums[16])
 
-        # TL 업체 밸런스 ← 날짜 패턴 포함으로 정확히 파싱
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_tl_bal = 0
         for t in tl_targets:
@@ -211,7 +202,6 @@ with col_right:
             data['merchants'][t] = val
             total_tl_bal += val
 
-        # ADA 업체 밸런스 (v99_BT만, 정확한 패턴)
         total_ada_bal = 0
         ada_bal_lines = ""
         if ada_input:
@@ -222,7 +212,6 @@ with col_right:
             total_ada_bal += val
             ada_bal_lines = f"- v99_BT : {val:,}\n"
 
-        # Merchant By Date 파싱
         mbd_targets = ['spfxm', 'dr188', 'drgtssen', 'drbetssen', 'drSpinmama']
         for line in (mbd_raw.split('\n') if mbd_raw else []):
             cols = line.split('\t')
@@ -232,14 +221,12 @@ with col_right:
                     data['merchant_in'][mid]  = data['merchant_in'].get(mid, 0)  + to_int(cols[5])
                     data['merchant_out'][mid] = data['merchant_out'].get(mid, 0) + to_int(cols[8])
 
-        # 손익 계산
         ada_agent = math.ceil((int(u_ada_in) + int(u_ada_out)) * 0.001)
         tl_exp    = abs(tl_agent) + abs(tl_gate) + abs(tl_virtual)
-        ada_exp   = ada_agent  # ADA는 에이전트만 (게이트 없음)
+        ada_exp   = ada_agent
         other_line = f"- 기타지출 : -{abs(data.get('b_other', 0)):,}\n" if data.get('b_other', 0) else ""
         sijae_val = total_bank_sum - (total_tl_bal + total_ada_bal)
 
-        # 섹션 구성
         usdt_section = ""
         if usdt_settle_lines: usdt_section += f"[USDT 정산]\n{usdt_settle_lines}\n"
         if usdt_topup_lines:  usdt_section += f"[USDT 탑업]\n{usdt_topup_lines}\n"
@@ -257,7 +244,7 @@ with col_right:
             io_lines.append(f"- v99_BT : {int(u_ada_in):,} / {int(u_ada_out):,}")
         merchant_io_text = '\n'.join(io_lines)
 
-        # 마감 모드에 따라 추가 섹션 구성
+        # 모드에 따라 추가 섹션 구성
         if report_mode == "📊 일일 마감":
             io_section = ""
             if merchant_io_text:
@@ -295,6 +282,7 @@ with col_right:
             f"{profit_section}"
             f"- 시재금 : {sijae_val:,} (기타 제외)\n"
         )
+
         h = max(600, report.count("\n") * 22 + 65)
         components.html(f"""
             <textarea id="rep" style="width:100%;height:{h}px;background:#1e293b;color:#e2e8f0;border:1px solid #38bdf8;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;padding:14px;box-sizing:border-box;outline:none;">{report}</textarea>
@@ -304,6 +292,7 @@ with col_right:
                 style="padding:8px 18px;background:#1e3a5f;color:#e2e8f0;border:1px solid #38bdf8;border-radius:6px;cursor:pointer;font-weight:600;">📋 복사하기</button>
             </div>
         """, height=h+50)
+
         total_merchant_bal = total_tl_bal + total_ada_bal
         risk_buy = max(0, math.floor((total_bank_sum - 20000000) / 10000000) * 10000000)
         st.markdown(f"""
