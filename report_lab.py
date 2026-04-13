@@ -280,7 +280,7 @@ with col_right:
             f"{usdt_section}{bank_text}\n\n"
             f"{io_section}"
             f"{profit_section}"
-            f"- 시재금 : {sijae_val:,} (기타 제외)\n"
+            f"{"- 시재금 : " + f"{sijae_val:,}" + " (기타 제외)" + chr(10) if report_mode == "📊 일일 마감" else ""}"
         )
 
         h = max(600, report.count("\n") * 22 + 65)
