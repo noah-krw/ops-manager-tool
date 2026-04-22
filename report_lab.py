@@ -196,7 +196,7 @@ with col_right:
         tl_targets = ['spfxm', 'Dpinnacle', 'dr188', 'drgtssen', 'drSpinmama', 'drbetssen']
         total_tl_bal = 0
         for t in tl_targets:
-            pattern = rf'\t{re.escape(t)}\t.*?([\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
+            pattern = rf'\t{re.escape(t)}\t.*?(-?[\d,]+)\s*원\s*\d{{4}}-\d{{2}}-\d{{2}}'
             m = re.search(pattern, tl_full)
             val = to_int(m.group(1)) if m else 0
             data['merchants'][t] = val
