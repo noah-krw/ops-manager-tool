@@ -205,7 +205,7 @@ with col_right:
         total_ada_bal = 0
         ada_bal_lines = ""
         if ada_input:
-            pattern = rf'v99_BT(?!_GAME|_GIFT).+?(\d{{1,3}}(?:,\d{{3}})+)'
+            pattern = rf'v99_BT(?!_GAME|_GIFT).+?(-?\d{{1,3}}(?:,\d{{3}})+)'
             m = re.search(pattern, ada_full)
             val = to_int(m.group(1)) if m else 0
             data['merchants']['v99_BT'] = val
